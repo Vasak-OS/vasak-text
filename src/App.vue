@@ -31,7 +31,12 @@ const EVENTO_ABRIR = 'abrir-rutas';
 
 const editor = useEditorStore();
 const { t } = useI18n();
-const { abrirIcon, guardarIcon, buscarIcon } = useReactiveIcons({
+const { appIcon, abrirIcon, guardarIcon, buscarIcon } = useReactiveIcons({
+	// El mismo nombre que declara el `.desktop`, y como icono y no como
+	// símbolo: es el dibujo de la aplicación, no un pictograma de acción. Sin
+	// esto la barra de título arrancaba con las pestañas pegadas al borde y sin
+	// nada que dijera qué aplicación es.
+	appIcon: { name: 'accessories-text-editor', type: 'icon' },
 	abrirIcon: 'document-open',
 	guardarIcon: 'document-save',
 	buscarIcon: 'edit-find',
@@ -237,8 +242,13 @@ onUnmounted(() => {
   <WindowAppLayout>
     <!-- `relative` para que el diálogo modal se apoye en la ventana y no en el
          documento, que con la ventana redondeada le pintaría las esquinas. -->
-    <div class="relative flex min-h-0 min-w-0 flex-1 flex-col">
-      <div class="flex min-w-0 items-center gap-2 border-b border-ui-border px-2 pb-1">
+    <!-- El icono y las pestañas van **en la barra de título**, del lado del
+         icono, como en la terminal: es la misma barra que lleva los botones de
+         la ventana, así que las pestañas quedan a la altura del título y no en
+         una segunda fila. -->
+    <template #topbar>
+      <div class="flex min-w-0 items-center" data-tauri-drag-region>
+        <img :src="appIcon" class="mr-2 size-7 shrink-0" :alt="t('app.nombre')">
         <TabBarComponent
           :pestanas="editor.lista"
           :titulos="editor.titulos"
@@ -254,38 +264,42 @@ onUnmounted(() => {
           @mover="editor.mover"
           @nueva="editor.nueva"
         />
-
-        <div class="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            class="rounded-corner-sm p-1 text-tx-muted hover:bg-ui-surface hover:text-tx-main"
-            :title="t('acciones.buscar')"
-            :aria-label="t('acciones.buscar')"
-            @click="vista?.buscar()"
-          >
-            <img :src="buscarIcon" class="size-4" alt="">
-          </button>
-          <button
-            type="button"
-            class="rounded-corner-sm p-1 text-tx-muted hover:bg-ui-surface hover:text-tx-main"
-            :title="t('acciones.abrir')"
-            :aria-label="t('acciones.abrir')"
-            @click="editor.abrirConDialogo()"
-          >
-            <img :src="abrirIcon" class="size-4" alt="">
-          </button>
-          <button
-            type="button"
-            class="rounded-corner-sm p-1 text-tx-muted hover:bg-ui-surface hover:text-tx-main"
-            :title="t('acciones.guardar')"
-            :aria-label="t('acciones.guardar')"
-            @click="guardar()"
-          >
-            <img :src="guardarIcon" class="size-4" alt="">
-          </button>
-        </div>
       </div>
 
+      <!-- Y las acciones del otro extremo, junto a los botones de la ventana:
+           el `justify-between` de la barra separa los dos grupos. -->
+      <div class="flex shrink-0 items-center gap-1 px-1">
+        <button
+          type="button"
+          class="rounded-corner border border-ui-border bg-ui-bg/80 p-1 hover:bg-ui-surface"
+          :title="t('acciones.buscar')"
+          :aria-label="t('acciones.buscar')"
+          @click="vista?.buscar()"
+        >
+          <img :src="buscarIcon" class="size-4" alt="">
+        </button>
+        <button
+          type="button"
+          class="rounded-corner border border-ui-border bg-ui-bg/80 p-1 hover:bg-ui-surface"
+          :title="t('acciones.abrir')"
+          :aria-label="t('acciones.abrir')"
+          @click="editor.abrirConDialogo()"
+        >
+          <img :src="abrirIcon" class="size-4" alt="">
+        </button>
+        <button
+          type="button"
+          class="rounded-corner border border-ui-border bg-ui-bg/80 p-1 hover:bg-ui-surface"
+          :title="t('acciones.guardar')"
+          :aria-label="t('acciones.guardar')"
+          @click="guardar()"
+        >
+          <img :src="guardarIcon" class="size-4" alt="">
+        </button>
+      </div>
+    </template>
+
+    <div class="relative flex min-h-0 min-w-0 flex-1 flex-col">
       <EditorComponent
         ref="vista"
         :pestana-id="editor.pestanas.activa"
