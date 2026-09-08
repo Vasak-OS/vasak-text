@@ -83,6 +83,17 @@ let vista: EditorView | null = null;
  */
 const estados = new Map<string, EditorState>();
 
+/**
+ * Con qué `generacion` se armó el estado de cada pestaña.
+ *
+ * Es lo que distingue «hay que rearmar esto porque el archivo se releyó del
+ * disco» de «esto es otra pestaña, que tiene su propia generación». Sin la
+ * distinción, un watch sobre `generacion` se disparaba al cambiar de pestaña
+ * —porque la generación de la otra pestaña es otro número— y descartaba el
+ * estado de la que se acababa de mostrar, con sus cambios sin guardar adentro.
+ */
+const generaciones = new Map<string, number>();
+
 const compLenguaje = new Compartment();
 const compAjuste = new Compartment();
 const compLectura = new Compartment();
@@ -115,6 +126,7 @@ function textoDe(id: string): string | null {
 /** Olvida el estado de una pestaña cerrada, para no acumular documentos. */
 function olvidar(id: string) {
 	estados.delete(id);
+	generaciones.delete(id);
 }
 
 defineExpose({ texto, textoDe, olvidar, enfocar, buscar, irALinea, deshacer, rehacer });
@@ -313,13 +325,17 @@ function mostrar(id: string | null) {
 		return;
 	}
 
+	// Se rearma sólo si no hay estado, o si el contenido de **esta** pestaña se
+	// reemplazó desde afuera. Comparar la generación guardada con la de ahora es
+	// lo que hace que cambiar de pestaña no tire por la borda la otra.
 	let estado = estados.get(id);
-	if (estado === undefined) {
+	if (estado === undefined || generaciones.get(id) !== props.generacion) {
 		estado = EditorState.create({
 			doc: props.guardado,
 			extensions: [idDelEstado.init(() => id), ...base(id)],
 		});
 		estados.set(id, estado);
+		generaciones.set(id, props.generacion);
 	}
 
 	vista.setState(estado);
@@ -399,16 +415,13 @@ watch(
 );
 
 // El contenido reemplazado desde afuera —recargar del disco— llega como un
-// número que sube. Se descarta el estado guardado: su historial es de un
-// contenido que ya no está, y deshacer sobre él traería de vuelta el texto viejo
-// mezclado con el nuevo.
+// número que sube. `mostrar` lo compara con el que tenía el estado guardado y lo
+// rearma si cambió: su historial es de un contenido que ya no está, y deshacer
+// sobre él traería de vuelta el texto viejo mezclado con el nuevo.
 watch(
 	() => props.generacion,
 	() => {
-		const id = props.pestanaId;
-		if (id === null) return;
-		estados.delete(id);
-		mostrar(id);
+		mostrar(props.pestanaId);
 	}
 );
 
