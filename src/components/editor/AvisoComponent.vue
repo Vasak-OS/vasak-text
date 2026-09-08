@@ -84,7 +84,7 @@ const esError = computed(() => props.aviso.tipo !== 'guardado');
     :class="esError
       ? 'border-status-error/40 bg-status-error/10 text-tx-main'
       : 'border-status-success/40 bg-status-success/10 text-tx-main'"
-    role="status"
+    :role="esError ? 'alert' : 'status'"
   >
     <span class="min-w-0 flex-1">{{ mensaje }}</span>
 

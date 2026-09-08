@@ -4600,7 +4600,6 @@ dependencies = [
 name = "vasak-text"
 version = "0.1.0"
 dependencies = [
- "gtk",
  "serde",
  "serde_json",
  "serde_yaml",

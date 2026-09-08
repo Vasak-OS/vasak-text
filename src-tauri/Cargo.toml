@@ -30,8 +30,17 @@ tauri-plugin-i18n-vsk = "2.1.1"
 tauri-plugin-vsk-contextual-menu = "2"
 tauri-plugin-shell = "2"
 
-# Para la ventana sin decoración: la barra propia necesita mover y redimensionar.
-gtk = "0.18"
+# `gtk` no está a propósito, aunque la plantilla lo traiga.
+#
+# La barra de título propia no lo necesita: mover y maximizar salen de
+# `data-tauri-drag-region` y de la API de ventana de Tauri, y este código nunca
+# lo importó.
+#
+# Ojo con lo que esto **no** arregla: `gtk` 0.18 y `glib` 0.18 siguen en el
+# Cargo.lock porque los trae Tauri por su cuenta, vía `tao`. El aviso de
+# dependabot sobre `glib::VariantStrIter` sigue en pie y no se cierra desde acá;
+# sale cuando Tauri actualice. Quitar esta línea es sacar una dependencia que no
+# se usa, nada más. Antes de volver a agregarla, comprobar que haga falta.
 tauri-plugin-vsk-journal = "2"
 
 # El selector de archivos. **No** es `tauri-plugin-fs`: el diálogo devuelve la
