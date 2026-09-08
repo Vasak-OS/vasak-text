@@ -1,11 +1,52 @@
 _version: 1
 app:
-  nombre: Vasak Application
+  nombre: Text Editor
 ventana:
   minimizar: Minimise
   maximizar: Maximise
   cerrar: Close
-inicio:
-  titulo: Hello, VasakOS
-  descripcion: This is the template. Replace this screen with your own.
-  saludo: "Hello, {0}"
+pestanas:
+  nueva: New tab
+  nueva_titulo: Untitled
+  cerrar: Close tab
+  sin_guardar: Unsaved
+acciones:
+  abrir: Open
+  guardar: Save
+  guardar_como: Save as
+  buscar: Find and replace
+estado:
+  posicion: "Line {0}, column {1}"
+  sin_lenguaje: Plain text
+  solo_lectura: Read-only
+  ajuste_linea: Wrap lines
+  ir_a_linea: Go to line
+opciones:
+  titulo: Options
+  indentacion: Indentation
+  tabulador: Tab
+  espacios: "{0} spaces"
+  quitar_espacios: Trim trailing whitespace
+  agregar_salto: End the file with a newline
+  al_guardar: On save
+  aviso: These change the file beyond what you edited.
+avisos:
+  guardado: Saved
+  cerrar: Dismiss
+  no_existe: "{0} was not found"
+  es_un_directorio: "{0} is a folder, not a file"
+  demasiado_grande: "{0} is too large to open here ({1})"
+  binario: "{0} is not a text file"
+  no_es_texto: "{0} is not UTF-8 encoded and opening it would lose data"
+  error_al_abrir: "Could not open {0}: {1}"
+  error_al_guardar: "Could not save {0}: {1}"
+  cambio_en_disco: "{0} changed on disk since it was opened. Saving would overwrite it."
+  recargar: Discard my changes and reload
+  guardar_igual: Save to another file
+sin_guardar:
+  titulo: Unsaved changes
+  una: "“{0}” has unsaved changes."
+  varias: "{0} files have unsaved changes."
+  guardar: Save
+  descartar: Discard
+  cancelar: Cancel
