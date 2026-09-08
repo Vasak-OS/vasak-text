@@ -121,6 +121,25 @@
   --use-status-error: var(--status-error);
   --use-status-success: var(--status-success);
   --use-status-warning: var(--status-warning);
+
+  /* La paleta de la terminal, para el resaltado de sintaxis del editor.
+
+     Sale de acá y no de un tema propio de CodeMirror para que el editor use los
+     mismos colores que la terminal: quien cambie la paleta del escritorio cambia
+     las dos cosas a la vez, que es lo que se espera de un escritorio y no de dos
+     aplicaciones que casualmente se parecen.
+
+     Los comentarios usan `--use-text-muted` y no el negro brillante de la
+     paleta: en modo oscuro ese valor es #181825, casi el fondo, y los
+     comentarios quedaban ilegibles. `--use-text-muted` además tiene el contraste
+     verificado en los dos modos. */
+  --use-terminal-cursor: var(--terminal-cursor);
+  --use-terminal-red: var(--terminal-ansi-red);
+  --use-terminal-green: var(--terminal-ansi-green);
+  --use-terminal-yellow: var(--terminal-ansi-yellow);
+  --use-terminal-blue: var(--terminal-ansi-blue);
+  --use-terminal-magenta: var(--terminal-ansi-magenta);
+  --use-terminal-cyan: var(--terminal-ansi-cyan);
 }
 
 .dark {
@@ -138,6 +157,14 @@
   --use-status-error: var(--status-error-dark);
   --use-status-success: var(--status-success-dark);
   --use-status-warning: var(--status-warning-dark);
+
+  --use-terminal-cursor: var(--terminal-cursor-dark);
+  --use-terminal-red: var(--terminal-ansi-red-dark);
+  --use-terminal-green: var(--terminal-ansi-green-dark);
+  --use-terminal-yellow: var(--terminal-ansi-yellow-dark);
+  --use-terminal-blue: var(--terminal-ansi-blue-dark);
+  --use-terminal-magenta: var(--terminal-ansi-magenta-dark);
+  --use-terminal-cyan: var(--terminal-ansi-cyan-dark);
 }
 
 @custom-variant dark (&:where(.dark, .dark *));

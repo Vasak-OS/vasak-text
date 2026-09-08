@@ -9,13 +9,58 @@ _version: 1
 #  2. Los dos idiomas tienen que tener las **mismas claves** y los mismos
 #     marcadores `{0}`. Hay un test que lo verifica.
 app:
-  nombre: Aplicación Vasak
+  nombre: Editor de texto
 ventana:
   minimizar: Minimizar
   maximizar: Maximizar
   cerrar: Cerrar
-inicio:
-  titulo: Hola, VasakOS
-  descripcion: Esta es la plantilla. Reemplazá esta pantalla por la tuya.
-  # `t()` no interpola: el marcador se reemplaza a mano. Ver el README.
-  saludo: "Hola, {0}"
+pestanas:
+  nueva: Nueva pestaña
+  nueva_titulo: Sin título
+  cerrar: Cerrar pestaña
+  sin_guardar: Sin guardar
+acciones:
+  abrir: Abrir
+  guardar: Guardar
+  guardar_como: Guardar como
+  buscar: Buscar y reemplazar
+estado:
+  posicion: "Línea {0}, columna {1}"
+  sin_lenguaje: Texto
+  solo_lectura: Sólo lectura
+  ajuste_linea: Ajuste de línea
+  ir_a_linea: Ir a línea
+opciones:
+  titulo: Opciones
+  indentacion: Indentación
+  tabulador: Tabulador
+  espacios: "{0} espacios"
+  quitar_espacios: Quitar espacios al final de cada línea
+  agregar_salto: Terminar el archivo con un salto de línea
+  al_guardar: Al guardar
+  # Se dice, porque son cambios que el archivo no pidió: prendidas, guardar
+  # toca líneas que nadie editó.
+  aviso: Cambian el archivo más allá de lo que se editó.
+avisos:
+  guardado: Guardado
+  cerrar: Cerrar el aviso
+  # Los errores al abrir. Cada uno dice algo distinto porque cada uno se
+  # resuelve distinto: un binario no es una falla del programa.
+  no_existe: "No se encontró {0}"
+  es_un_directorio: "{0} es una carpeta, no un archivo"
+  demasiado_grande: "{0} es demasiado grande para abrirlo acá ({1})"
+  binario: "{0} no es un archivo de texto"
+  no_es_texto: "{0} no está codificado en UTF-8 y abrirlo perdería datos"
+  error_al_abrir: "No se pudo abrir {0}: {1}"
+  error_al_guardar: "No se pudo guardar {0}: {1}"
+  ya_abierto: "{0} ya está abierto en otra pestaña"
+  cambio_en_disco: "{0} cambió en el disco desde que se abrió. Guardar lo pisaría."
+  recargar: Descartar mis cambios y recargar
+  guardar_igual: Guardar en otro archivo
+sin_guardar:
+  titulo: Hay cambios sin guardar
+  una: "«{0}» tiene cambios sin guardar."
+  varias: "Hay {0} archivos con cambios sin guardar."
+  guardar: Guardar
+  descartar: Descartar
+  cancelar: Cancelar

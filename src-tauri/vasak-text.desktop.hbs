@@ -1,0 +1,115 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Text Editor
+Name[ar]=محرر النصوص
+Name[ca]=Editor de text
+Name[cs]=Textový editor
+Name[da]=Tekstredigering
+Name[de]=Texteditor
+Name[el]=Επεξεργαστής κειμένου
+Name[en]=Text Editor
+Name[es]=Editor de texto
+Name[fi]=Tekstimuokkain
+Name[fr]=Éditeur de texte
+Name[he]=עורך טקסט
+Name[hi]=पाठ संपादक
+Name[hu]=Szövegszerkesztő
+Name[id]=Penyunting teks
+Name[it]=Editor di testo
+Name[ja]=テキストエディター
+Name[ko]=텍스트 편집기
+Name[nl]=Tekstbewerker
+Name[no]=Tekstredigerer
+Name[pl]=Edytor tekstu
+Name[pt]=Editor de texto
+Name[pt_BR]=Editor de texto
+Name[ro]=Editor de text
+Name[ru]=Текстовый редактор
+Name[sv]=Textredigerare
+Name[th]=เครื่องมือแก้ไขข้อความ
+Name[tr]=Metin Düzenleyici
+Name[uk]=Текстовий редактор
+Name[zh_CN]=文本编辑器
+Name[zh_TW]=文字編輯器
+GenericName=Text Editor
+GenericName[ar]=محرر النصوص
+GenericName[ca]=Editor de text
+GenericName[cs]=Textový editor
+GenericName[da]=Tekstredigering
+GenericName[de]=Texteditor
+GenericName[el]=Επεξεργαστής κειμένου
+GenericName[en]=Text Editor
+GenericName[es]=Editor de texto
+GenericName[fi]=Tekstimuokkain
+GenericName[fr]=Éditeur de texte
+GenericName[he]=עורך טקסט
+GenericName[hi]=पाठ संपादक
+GenericName[hu]=Szövegszerkesztő
+GenericName[id]=Penyunting teks
+GenericName[it]=Editor di testo
+GenericName[ja]=テキストエディター
+GenericName[ko]=텍스트 편집기
+GenericName[nl]=Tekstbewerker
+GenericName[no]=Tekstredigerer
+GenericName[pl]=Edytor tekstu
+GenericName[pt]=Editor de texto
+GenericName[pt_BR]=Editor de texto
+GenericName[ro]=Editor de text
+GenericName[ru]=Текстовый редактор
+GenericName[sv]=Textredigerare
+GenericName[th]=เครื่องมือแก้ไขข้อความ
+GenericName[tr]=Metin Düzenleyici
+GenericName[uk]=Текстовий редактор
+GenericName[zh_CN]=文本编辑器
+GenericName[zh_TW]=文字編輯器
+Comment=Edit text files
+Comment[ar]=تحرير الملفات النصية
+Comment[ca]=Edita fitxers de text
+Comment[cs]=Úprava textových souborů
+Comment[da]=Redigér tekstfiler
+Comment[de]=Textdateien bearbeiten
+Comment[el]=Επεξεργασία αρχείων κειμένου
+Comment[en]=Edit text files
+Comment[es]=Editar archivos de texto
+Comment[fi]=Muokkaa tekstitiedostoja
+Comment[fr]=Modifier des fichiers texte
+Comment[he]=עריכת קובצי טקסט
+Comment[hi]=पाठ फ़ाइलें संपादित करें
+Comment[hu]=Szövegfájlok szerkesztése
+Comment[id]=Sunting berkas teks
+Comment[it]=Modifica file di testo
+Comment[ja]=テキストファイルを編集します
+Comment[ko]=텍스트 파일을 편집합니다
+Comment[nl]=Tekstbestanden bewerken
+Comment[no]=Rediger tekstfiler
+Comment[pl]=Edytowanie plików tekstowych
+Comment[pt]=Editar ficheiros de texto
+Comment[pt_BR]=Editar arquivos de texto
+Comment[ro]=Editați fișiere text
+Comment[ru]=Редактирование текстовых файлов
+Comment[sv]=Redigera textfiler
+Comment[th]=แก้ไขไฟล์ข้อความ
+Comment[tr]=Metin dosyalarını düzenle
+Comment[uk]=Редагування текстових файлів
+Comment[zh_CN]=编辑文本文件
+Comment[zh_TW]=編輯文字檔案
+Keywords=text;editor;plaintext;write;code;
+Keywords[es]=texto;editor;escribir;código;
+# `%F` es lo que hace que «abrir con» funcione: sin él el escritorio lanza el
+# editor sin decirle qué archivo, y se abre una ventana vacía. Es `%F` y no `%f`
+# porque acepta varios a la vez, uno por pestaña.
+Exec={{exec}} %F
+Icon=accessories-text-editor
+Terminal=false
+Categories=Utility;TextEditor;
+StartupWMClass=vasak-text
+StartupNotify=true
+# Sin esto el gestor de archivos no lo encuentra: su «abrir» resuelve por tipo
+# MIME, así que un editor sin `MimeType` declarado no es candidato para ningún
+# archivo y hay que ir a buscarlo al menú.
+#
+# La lista es la de lo que el editor sabe resaltar más el texto plano. No están
+# los tipos que se editan a mano pero se abren mejor con otra cosa —un `.svg` es
+# XML y también una imagen— para no ganarle la asociación al visor.
+MimeType=text/plain;text/markdown;text/x-log;text/x-readme;text/x-makefile;text/x-shellscript;text/x-python;text/x-csrc;text/x-chdr;text/x-c++src;text/x-java;text/rust;text/css;text/html;text/xml;text/x-diff;text/x-patch;text/csv;application/json;application/toml;application/x-yaml;application/xml;application/javascript;application/x-desktop;application/x-shellscript;

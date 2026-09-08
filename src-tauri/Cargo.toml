@@ -1,7 +1,7 @@
 [package]
-name = "vapp"
+name = "vasak-text"
 version = "0.1.0"
-description = "A Vasak Application (template)"
+description = "El editor de texto de VasakOS"
 authors = ["Vasak Group", "Joaquin (Pato) Decima"]
 edition = "2021"
 
@@ -11,7 +11,7 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "vapp_lib"
+name = "vasak_text_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -30,15 +30,55 @@ tauri-plugin-i18n-vsk = "2.1.1"
 tauri-plugin-vsk-contextual-menu = "2"
 tauri-plugin-shell = "2"
 
-# Para la ventana sin decoración: la barra propia necesita mover y redimensionar.
-gtk = "0.18"
+# `gtk` no está a propósito, aunque la plantilla lo traiga.
+#
+# La barra de título propia no lo necesita: mover y maximizar salen de
+# `data-tauri-drag-region` y de la API de ventana de Tauri, y este código nunca
+# lo importó.
+#
+# Ojo con lo que esto **no** arregla: `gtk` 0.18 y `glib` 0.18 siguen en el
+# Cargo.lock porque los trae Tauri por su cuenta, vía `tao`. El aviso de
+# dependabot sobre `glib::VariantStrIter` sigue en pie y no se cierra desde acá;
+# sale cuando Tauri actualice. Quitar esta línea es sacar una dependencia que no
+# se usa, nada más. Antes de volver a agregarla, comprobar que haga falta.
 tauri-plugin-vsk-journal = "2"
 
+# El selector de archivos. **No** es `tauri-plugin-fs`: el diálogo devuelve la
+# ruta que la persona eligió y nada más, mientras que `fs` con un `scope` amplio
+# le da al WebView acceso declarado a todo el home. Los archivos los leen y
+# escriben los comandos de `documento.rs`. El gestor de archivos ya usa este
+# plugin por la misma razón.
+tauri-plugin-dialog = "2"
+
+# Una sola ventana. Abrir un `.txt` con el editor ya abierto entra como pestaña
+# nueva en lugar de levantar un segundo WebKit de ~150 MB.
+tauri-plugin-single-instance = "2"
+
+# Para pedirle al escritorio que traiga la ventana al frente. En Wayland
+# `set_focus` no alcanza —un cliente no puede robarse el foco— así que abrir un
+# archivo con el editor ya abierto dejaba la pestaña nueva en una ventana que
+# seguía atrás. `vasak-settings` resuelve lo mismo con este mensaje.
+zbus = { version = "4", default-features = false, features = ["tokio"] }
+
 [dev-dependencies]
+# Los tests de `documento.rs` escriben archivos de verdad: el guardado atómico,
+# los permisos que se conservan y el archivo que cambió en disco no se pueden
+# probar sin disco.
+tempfile = "3"
 # Sólo para el test que valida los catálogos de idioma: el plugin los parsea en
 # tiempo de ejecución y **paniquea** si no puede, así que un error de sintaxis no
 # se ve hasta que la aplicación no arranca.
 serde_yaml = "0.9"
+
+[features]
+# Para poder probar la ventana sin el servidor de desarrollo.
+#
+# Sin esta feature, `tauri` sirve la interfaz desde `devUrl`, y un binario
+# compilado a mano abre una ventana **vacía** sin decir nada: no hay error, no
+# hay página. Con ella la interfaz sale de `dist/`, que es lo que hace el
+# empaquetado. Correr `cargo build --features custom-protocol` es la forma de
+# mirar la aplicación real.
+custom-protocol = ["tauri/custom-protocol"]
 
 [profile.dev]
 incremental = true # Compile your binary in smaller steps.

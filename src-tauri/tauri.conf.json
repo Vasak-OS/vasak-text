@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "vapp",
+  "productName": "vasak-text",
   "version": "0.1.0",
-  "identifier": "ar.net.vasak.vapp",
+  "identifier": "ar.net.vasak.text",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "vapp",
-        "width": 800,
-        "height": 600,
+        "title": "vasak-text",
+        "width": 940,
+        "height": 700,
+        "minWidth": 480,
+        "minHeight": 320,
         "decorations": false,
         "transparent": true
       }
@@ -32,6 +34,7 @@
         "files": {}
       },
       "deb": {
+        "desktopTemplate": "vasak-text.desktop.hbs",
         "depends": [
           "libcairo2",
           "desktop-file-utils",
@@ -48,11 +51,7 @@
       }
     },
     "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/icon.png"
     ]
   }
 }
