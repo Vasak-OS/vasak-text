@@ -13,6 +13,7 @@
  */
 
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
+import { onMounted, useTemplateRef } from 'vue';
 import type { OpcionesAlGuardar } from '@/tools/al-guardar';
 import { interpolar } from '@/tools/interpolar';
 
@@ -32,6 +33,15 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
+const panel = useTemplateRef<HTMLDivElement>('panel');
+
+// El foco entra al abrir. Sin esto el `keydown` no llega nunca —se queda en el
+// editor, que es de donde se abrió— y Escape, que es la salida que la mano busca
+// de algo que se abrió encima, no hacía nada.
+onMounted(() => {
+	panel.value?.focus();
+});
+
 /** Las anchuras que se ofrecen. `0` es el tabulador. */
 const ANCHOS = [0, 2, 4, 8];
 
@@ -47,7 +57,13 @@ function cambiar(campo: keyof OpcionesAlGuardar) {
 <template>
   <!-- El fondo cierra el panel al hacer clic afuera, que es lo que la mano
        espera de algo que se abrió con un clic. -->
-  <div class="absolute inset-0 z-10" @click="emit('cerrar')">
+  <div
+    ref="panel"
+    class="absolute inset-0 z-10"
+    tabindex="-1"
+    @click="emit('cerrar')"
+    @keydown.esc="emit('cerrar')"
+  >
     <div
       class="absolute right-2 bottom-8 w-72 rounded-corner border border-ui-border-strong bg-ui-bg p-3 text-sm shadow-lg"
       @click.stop

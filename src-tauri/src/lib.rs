@@ -55,6 +55,9 @@ async fn pedir_al_frente() {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Las rutas que llegan de una segunda instancia antes de que el
+        // frontend pueda escucharlas. Ver `comandos::RutasPendientes`.
+        .manage(comandos::RutasPendientes::default())
         // El diario del sistema, con el nombre de esta aplicación. Va **primero**
         // de todos los plugins: instala el gancho de pánico, y un pánico mientras
         // arranca otro plugin es de los más probables y de los que menos rastro
@@ -70,7 +73,13 @@ pub fn run() {
         // proceso salga unos milisegundos más temprano— no compensa perder el
         // rastro de un pánico ocurrido justo ahí.
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            // Si la ventana todavía no existe, las rutas **no se descartan**:
+            // se guardan para que las recoja `rutas_de_apertura`.
             let Some(ventana) = app.get_webview_window("main") else {
+                let rutas = comandos::rutas_de(argv.into_iter().skip(1));
+                if !rutas.is_empty() {
+                    app.state::<comandos::RutasPendientes>().agregar(rutas);
+                }
                 return;
             };
 
@@ -83,6 +92,12 @@ pub fn run() {
 
             let rutas = comandos::rutas_de(argv.into_iter().skip(1));
             if !rutas.is_empty() {
+                // Se emiten **y** se guardan. Un evento emitido antes de que el
+                // frontend registre su `listen` no llega a nadie, y eso pasa si
+                // alguien abre dos archivos seguidos desde el gestor: el segundo
+                // llega mientras el WebView arranca. Guardadas, las recoge
+                // `rutas_de_apertura`. Ver `RutasPendientes`.
+                app.state::<comandos::RutasPendientes>().agregar(rutas.clone());
                 let _ = ventana.emit(EVENTO_ABRIR, rutas);
             }
         }))

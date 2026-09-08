@@ -23,7 +23,10 @@ const apariencia = EditorView.theme({
 	'&': {
 		backgroundColor: 'transparent',
 		color: 'var(--use-text-main)',
-		// La fuente y el cuerpo que se eligieron en Configuración.
+		// La **familia** que se eligió en Configuración. El cuerpo no: el
+		// escritorio no publica ninguna variable con el tamaño de la fuente
+		// monoespaciada, así que este 13px es una decisión de esta aplicación.
+		// Si algún día hay una variable, va acá.
 		fontFamily: 'var(--vsk-font-terminal)',
 		fontSize: '13px',
 		height: '100%',

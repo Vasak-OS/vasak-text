@@ -40,6 +40,7 @@ avisos:
   no_es_texto: "{0} is not UTF-8 encoded and opening it would lose data"
   error_al_abrir: "Could not open {0}: {1}"
   error_al_guardar: "Could not save {0}: {1}"
+  ya_abierto: "{0} is already open in another tab"
   cambio_en_disco: "{0} changed on disk since it was opened. Saving would overwrite it."
   recargar: Discard my changes and reload
   guardar_igual: Save to another file

@@ -53,6 +53,7 @@ avisos:
   no_es_texto: "{0} no está codificado en UTF-8 y abrirlo perdería datos"
   error_al_abrir: "No se pudo abrir {0}: {1}"
   error_al_guardar: "No se pudo guardar {0}: {1}"
+  ya_abierto: "{0} ya está abierto en otra pestaña"
   cambio_en_disco: "{0} cambió en el disco desde que se abrió. Guardar lo pisaría."
   recargar: Descartar mis cambios y recargar
   guardar_igual: Guardar en otro archivo

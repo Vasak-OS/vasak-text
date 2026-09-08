@@ -182,36 +182,55 @@ export function sucias<D>(estado: Pestanas<D>): Pestana<D>[] {
  * repite, se le agrega el directorio que las distingue: `red/mod.rs` y
  * `disco/mod.rs`.
  *
- * Se agrega **sólo a las que se repiten**: hacerlo siempre llenaría la fila de
- * rutas largas para resolver un problema que casi nunca está.
+ * Y se agrega **todo lo que haga falta**, no un nivel: `/proyecto/a/mod.rs` y
+ * `/otro/a/mod.rs` comparten también el directorio padre, así que con un solo
+ * nivel las dos seguían diciendo `a/mod.rs` y el problema quedaba igual. Se
+ * suben niveles hasta que dejan de coincidir.
+ *
+ * Se alarga **sólo lo que se repite**: hacerlo siempre llenaría la fila de rutas
+ * largas para resolver un problema que casi nunca está.
  *
  * Las pestañas sin archivo se quedan con el nombre que traen, porque no hay ruta
  * con la que desambiguarlas.
  */
 export function titulos(rutas: (string | null)[]): string[] {
-	const nombres = rutas.map((ruta) => (ruta === null ? null : nombreDe(ruta)));
+	const salida = rutas.map((ruta) => (ruta === null ? '' : nombreDe(ruta)));
 
-	const repetidos = new Set(
-		nombres.filter((n, i): n is string => n !== null && nombres.indexOf(n) !== i)
+	// Se sube un nivel por vuelta, y sólo en las posiciones que todavía chocan
+	// con otra. El tope es la ruta más profunda: llegado ahí, dos títulos que
+	// sigan iguales son la misma ruta escrita dos veces, y alargarlos más no
+	// cambiaría nada.
+	const profundidadMaxima = Math.max(
+		1,
+		...rutas.map((ruta) => (ruta === null ? 1 : segmentos(ruta).length))
 	);
 
-	return rutas.map((ruta, i) => {
-		const nombre = nombres[i];
-		if (ruta === null || nombre === null || !repetidos.has(nombre)) {
-			return nombre ?? '';
+	for (let niveles = 2; niveles <= profundidadMaxima; niveles += 1) {
+		const repetidos = new Set(
+			salida.filter((titulo, i) => titulo !== '' && salida.indexOf(titulo) !== i)
+		);
+		if (repetidos.size === 0) break;
+
+		for (const [i, ruta] of rutas.entries()) {
+			if (ruta === null || !repetidos.has(salida[i])) continue;
+			salida[i] = ultimosSegmentos(ruta, niveles);
 		}
-		return conPadre(ruta);
-	});
+	}
+
+	return salida;
+}
+
+function segmentos(ruta: string): string[] {
+	return ruta.split('/').filter((p) => p.length > 0);
 }
 
 function nombreDe(ruta: string): string {
-	const partes = ruta.split('/').filter((p) => p.length > 0);
+	const partes = segmentos(ruta);
 	return partes[partes.length - 1] ?? ruta;
 }
 
-/** `a/b/c.txt` → `b/c.txt`. Un nivel: el que distingue en el caso común. */
-function conPadre(ruta: string): string {
-	const partes = ruta.split('/').filter((p) => p.length > 0);
-	if (partes.length < 2) return nombreDe(ruta);
-	return `${partes[partes.length - 2]}/${partes[partes.length - 1]}`;
+/** Los últimos `cuantos` segmentos de una ruta, o la ruta si tiene menos. */
+function ultimosSegmentos(ruta: string, cuantos: number): string {
+	const partes = segmentos(ruta);
+	return partes.slice(Math.max(0, partes.length - cuantos)).join('/');
 }

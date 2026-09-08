@@ -28,6 +28,14 @@ export interface Documento {
 	finDeLinea: FinDeLinea;
 	terminaConSalto: boolean;
 	huella: Huella;
+	/**
+	 * Si el archivo traía la marca de orden de bytes de UTF-8.
+	 *
+	 * No está en el texto —se vería como un carácter invisible al principio de
+	 * la primera línea— pero se devuelve al guardar: quitarla son tres bytes que
+	 * nadie pidió cambiar.
+	 */
+	bom: boolean;
 	soloLectura: boolean;
 }
 
@@ -81,6 +89,7 @@ export async function guardarDocumento(
 	texto: string,
 	finDeLinea: FinDeLinea,
 	terminaConSalto: boolean,
+	bom: boolean,
 	huella: Huella | null
 ): Promise<Huella> {
 	return await invoke<Huella>('guardar_documento', {
@@ -88,6 +97,7 @@ export async function guardarDocumento(
 		texto,
 		finDeLinea,
 		terminaConSalto,
+		bom,
 		huella,
 	});
 }

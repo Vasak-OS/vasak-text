@@ -32,7 +32,9 @@ export type Lenguaje =
 	| 'shell'
 	| 'rust'
 	| 'javascript'
+	| 'jsx'
 	| 'typescript'
+	| 'tsx'
 	| 'vue'
 	| 'python'
 	| 'css'
@@ -45,7 +47,9 @@ export type Lenguaje =
  *
  * `.ts` va a `typescript` y no a `javascript` aunque el paquete sea el mismo:
  * la diferencia está en cómo se lo configura al cargarlo, y tenerlas separadas
- * acá deja eso decidido en un solo lugar.
+ * acá deja eso decidido en un solo lugar. Por lo mismo `.jsx` y `.tsx` son sus
+ * propias entradas: `javascript({ typescript: true })` **no** enciende JSX, así
+ * que un `.tsx` cargado como `typescript` mostraba las etiquetas sin resaltar.
  */
 export const POR_EXTENSION: Record<string, Lenguaje> = {
 	md: 'markdown',
@@ -66,10 +70,10 @@ export const POR_EXTENSION: Record<string, Lenguaje> = {
 	js: 'javascript',
 	mjs: 'javascript',
 	cjs: 'javascript',
-	jsx: 'javascript',
+	jsx: 'jsx',
 	ts: 'typescript',
 	mts: 'typescript',
-	tsx: 'typescript',
+	tsx: 'tsx',
 	vue: 'vue',
 	py: 'python',
 	css: 'css',
@@ -152,8 +156,15 @@ export async function cargar(lenguaje: Lenguaje): Promise<Extension> {
 			return (await import('@codemirror/lang-rust')).rust();
 		case 'javascript':
 			return (await import('@codemirror/lang-javascript')).javascript();
+		case 'jsx':
+			return (await import('@codemirror/lang-javascript')).javascript({ jsx: true });
 		case 'typescript':
 			return (await import('@codemirror/lang-javascript')).javascript({ typescript: true });
+		case 'tsx':
+			return (await import('@codemirror/lang-javascript')).javascript({
+				typescript: true,
+				jsx: true,
+			});
 		case 'vue':
 			return (await import('@codemirror/lang-vue')).vue();
 		case 'python':
@@ -185,3 +196,30 @@ export async function cargar(lenguaje: Lenguaje): Promise<Extension> {
 		}
 	}
 }
+
+/**
+ * Cómo se escribe cada lenguaje cuando se lo muestra.
+ *
+ * Los identificadores de arriba son para el código; en la barra de estado, al
+ * lado de texto traducido, `javascript` y `toml` en minúsculas se leían como un
+ * dato crudo que se escapó. Nada de esto se traduce: son nombres propios.
+ */
+export const NOMBRE_VISIBLE: Record<Lenguaje, string> = {
+	markdown: 'Markdown',
+	json: 'JSON',
+	yaml: 'YAML',
+	toml: 'TOML',
+	ini: 'INI',
+	shell: 'Shell',
+	rust: 'Rust',
+	javascript: 'JavaScript',
+	jsx: 'JSX',
+	typescript: 'TypeScript',
+	tsx: 'TSX',
+	vue: 'Vue',
+	python: 'Python',
+	css: 'CSS',
+	html: 'HTML',
+	xml: 'XML',
+	diff: 'Diff',
+};

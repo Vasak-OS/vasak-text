@@ -271,6 +271,11 @@ function base(id: string): Extension[] {
 		search({ top: true }),
 		EditorState.allowMultipleSelections.of(true),
 		atajosDeLaApp,
+		// `indentWithTab` hace que el tabulador indente en lugar de mover el
+		// foco, que es lo que se espera de un editor. La contrapartida es que
+		// atrapa el tabulador, así que la salida por teclado es **Escape y
+		// después tabulador**: CodeMirror la trae de fábrica justamente porque
+		// atrapar el tabulador sin salida incumple las pautas de accesibilidad.
 		keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
 		compLenguaje.of([]),
 		compAjuste.of([]),
@@ -341,6 +346,13 @@ function mostrar(id: string | null) {
 	vista.setState(estado);
 	aplicarConfiguracion();
 	cargarLenguaje();
+
+	// `setState` no genera ningún `update`, así que la posición hay que
+	// anunciarla a mano: si no, la barra de estado se quedaba con la línea y la
+	// columna de la pestaña anterior hasta que alguien moviera el cursor.
+	const cabeza = estado.selection.main.head;
+	const linea = estado.doc.lineAt(cabeza);
+	emit('posicion', linea.number, cabeza - linea.from + 1);
 }
 
 /**

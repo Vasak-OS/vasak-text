@@ -35,6 +35,8 @@ export interface Archivo {
 	terminaConSalto: boolean;
 	/** `null` si nunca se leyó de disco: una pestaña nueva. */
 	huella: Huella | null;
+	/** Si el archivo traía marca de orden de bytes. Se devuelve al guardar. */
+	bom: boolean;
 	soloLectura: boolean;
 	/** El texto tal como está en disco. Con esto se sabe si hay cambios. */
 	guardado: string;
@@ -53,6 +55,7 @@ export type Aviso =
 	| { tipo: 'no-se-pudo-abrir'; ruta: string; causa: ErrorAlAbrir }
 	| { tipo: 'no-se-pudo-guardar'; ruta: string; causa: ErrorAlGuardar }
 	| { tipo: 'cambio-en-disco'; id: string; ruta: string }
+	| { tipo: 'ya-abierto'; ruta: string }
 	| { tipo: 'guardado'; ruta: string };
 
 export const useEditorStore = defineStore('editor', () => {
@@ -93,6 +96,10 @@ export const useEditorStore = defineStore('editor', () => {
 				// de texto, y POSIX lo pide.
 				terminaConSalto: true,
 				huella: null,
+				// Un archivo nuevo no nace con marca de orden de bytes: casi
+				// nada en este sistema la espera, y agregarla sería inventar
+				// tres bytes que nadie pidió.
+				bom: false,
 				soloLectura: false,
 				guardado: '',
 				generacion: 0,
@@ -128,6 +135,7 @@ export const useEditorStore = defineStore('editor', () => {
 					finDeLinea: doc.finDeLinea,
 					terminaConSalto: doc.terminaConSalto,
 					huella: doc.huella,
+					bom: doc.bom,
 					soloLectura: doc.soloLectura,
 					guardado: doc.texto,
 					generacion: 1,
@@ -223,6 +231,18 @@ export const useEditorStore = defineStore('editor', () => {
 		});
 		if (destino === null) return false;
 
+		// Otra pestaña sobre el mismo archivo son dos versiones del mismo texto,
+		// y la que se guarde segunda pisa a la otra sin que nada avise. `abrir`
+		// evita exactamente eso; sin este guard, «guardar como» sobre un archivo
+		// ya abierto llegaba al estado que `abrir` no deja llegar — y encima la
+		// comprobación de huella no lo detecta, porque cada pestaña guarda la
+		// huella de su propia última escritura.
+		const otra = p.buscar(pestanas.value, (d) => d.ruta === destino);
+		if (otra !== null && otra.id !== id) {
+			avisar({ tipo: 'ya-abierto', ruta: destino });
+			return false;
+		}
+
 		// Sin huella: es otro archivo, y no hay nada con qué comparar. El
 		// diálogo del sistema ya preguntó si había que pisarlo.
 		return await escribir(id, destino, texto, null, terminaConSalto);
@@ -251,6 +271,7 @@ export const useEditorStore = defineStore('editor', () => {
 				texto,
 				pestana.datos.finDeLinea,
 				salto,
+				pestana.datos.bom,
 				huella
 			);
 
@@ -302,6 +323,7 @@ export const useEditorStore = defineStore('editor', () => {
 				finDeLinea: doc.finDeLinea,
 				terminaConSalto: doc.terminaConSalto,
 				huella: doc.huella,
+				bom: doc.bom,
 				soloLectura: doc.soloLectura,
 				guardado: doc.texto,
 				generacion: datos.generacion + 1,

@@ -217,4 +217,35 @@ describe('los títulos de la fila', () => {
 	test('un archivo en la raíz no inventa un directorio', () => {
 		expect(titulos(['/hosts', '/etc/hosts'])).toEqual(['hosts', 'etc/hosts']);
 	});
+
+	test('si el directorio padre también coincide, se sube otro nivel', () => {
+		// Con un solo nivel los dos seguían diciendo `a/mod.rs` y el problema
+		// quedaba igual que sin desambiguar.
+		expect(titulos(['/proyecto/a/mod.rs', '/otro/a/mod.rs'])).toEqual([
+			'proyecto/a/mod.rs',
+			'otro/a/mod.rs',
+		]);
+	});
+
+	test('se sube sólo hasta donde hace falta', () => {
+		// El tercero ya se distingue con un nivel: alargarlo también llenaría la
+		// fila de ruta para resolver algo que no está.
+		expect(
+			titulos(['/uno/dos/a/x.rs', '/tres/dos/a/x.rs', '/cuatro/b/x.rs'])
+		).toEqual(['uno/dos/a/x.rs', 'tres/dos/a/x.rs', 'b/x.rs']);
+	});
+
+	test('la misma ruta dos veces no cuelga el desambiguado', () => {
+		// El bucle sube niveles mientras haya repetidos; con dos rutas idénticas
+		// nunca dejan de serlo, así que el tope es lo que evita colgarse.
+		expect(titulos(['/a/b/x.rs', '/a/b/x.rs'])).toEqual(['a/b/x.rs', 'a/b/x.rs']);
+	});
+
+	test('tres con el mismo nombre se distinguen las tres', () => {
+		expect(titulos(['/a/mod.rs', '/b/mod.rs', '/c/mod.rs'])).toEqual([
+			'a/mod.rs',
+			'b/mod.rs',
+			'c/mod.rs',
+		]);
+	});
 });

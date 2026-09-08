@@ -11,7 +11,7 @@ import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { computed } from 'vue';
 import type { FinDeLinea } from '@/tools/documento';
 import { interpolar } from '@/tools/interpolar';
-import { lenguajeDe } from '@/tools/lenguajes';
+import { lenguajeDe, NOMBRE_VISIBLE } from '@/tools/lenguajes';
 
 const props = defineProps<{
 	linea: number;
@@ -30,8 +30,16 @@ const { t } = useI18n();
 
 const posicion = computed(() => interpolar(t('estado.posicion'), props.linea, props.columna));
 
-/** El nombre del lenguaje, o «Texto» si no se reconoce. */
-const lenguaje = computed(() => lenguajeDe(props.ruta) ?? t('estado.sin_lenguaje'));
+/**
+ * El nombre del lenguaje, o «Texto» si no se reconoce.
+ *
+ * El nombre visible y no el identificador interno: al lado de texto traducido,
+ * un `javascript` en minúsculas se leía como un dato crudo que se escapó.
+ */
+const lenguaje = computed(() => {
+	const cual = lenguajeDe(props.ruta);
+	return cual === null ? t('estado.sin_lenguaje') : NOMBRE_VISIBLE[cual];
+});
 
 /**
  * El resumen de las preferencias, que es también el botón que las abre.

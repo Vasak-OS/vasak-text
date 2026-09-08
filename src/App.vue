@@ -99,14 +99,23 @@ function paraEscribir(id: string): { texto: string; terminaConSalto: boolean } |
 	return preparar(texto, pestana?.datos.terminaConSalto ?? true, alGuardar.value);
 }
 
-async function guardar(): Promise<boolean> {
-	const activa = editor.activa;
-	if (activa === null) return false;
+/**
+ * Guarda una pestaña; sin `id`, la que está a la vista.
+ *
+ * El parámetro **no es un adorno**: al cerrar una pestaña sucia que no es la
+ * activa y elegir «Guardar», esto se llamaba sin `id` y escribía el archivo de
+ * la pestaña activa —que nadie pidió guardar— para después cerrar la otra
+ * descartando sus cambios. El diálogo nombraba una pestaña y la acción tocaba
+ * otra.
+ */
+async function guardar(id?: string): Promise<boolean> {
+	const objetivo = id ?? editor.activa?.id;
+	if (objetivo === undefined) return false;
 
-	const listo = paraEscribir(activa.id);
+	const listo = paraEscribir(objetivo);
 	if (listo === null) return false;
 
-	return await editor.guardar(activa.id, listo.texto, listo.terminaConSalto);
+	return await editor.guardar(objetivo, listo.texto, listo.terminaConSalto);
 }
 
 async function guardarComo(id?: string): Promise<boolean> {
@@ -159,7 +168,8 @@ async function resolverPendiente(guardando: boolean) {
 	if (accion === null) return;
 
 	if (guardando) {
-		const listo = accion.accion === 'cerrar-ventana' ? await guardarTodas() : await guardar();
+		const listo =
+			accion.accion === 'cerrar-ventana' ? await guardarTodas() : await guardar(accion.id);
 		// Si no se pudo guardar —o se canceló el diálogo de «guardar como»— no se
 		// sigue: el aviso queda a la vista y nada se pierde.
 		if (!listo) {

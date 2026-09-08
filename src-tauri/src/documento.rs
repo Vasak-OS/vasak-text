@@ -6,9 +6,14 @@
 //! normalizaron los finales de línea. Eso no se nota hasta que ya pasó.
 //!
 //! Por eso el archivo se recuerda **como estaba** —su fin de línea, si terminaba
-//! con salto— y al guardar se reconstruye igual. Adentro el texto siempre usa
-//! `\n`, que es lo que espera el editor; la conversión ocurre en los bordes y
-//! está probada de ida y vuelta.
+//! con salto, si traía marca de orden de bytes— y al guardar se reconstruye
+//! igual. Adentro el texto siempre usa `\n`, que es lo que espera el editor; la
+//! conversión ocurre en los bordes y está probada de ida y vuelta.
+//!
+//! **La excepción, que conviene saber antes de encontrarla:** un archivo con
+//! finales de línea mezclados se unifica al que predomina. El porqué está en
+//! [`fin_de_linea_de`]; en resumen, recordar el de cada línea no sobrevive a que
+//! alguien inserte o borre líneas.
 //!
 //! # Lo que no hace, y por qué
 //!
@@ -78,6 +83,14 @@ pub struct Documento {
     /// en un `git diff` se ve como una línea modificada.
     pub termina_con_salto: bool,
     pub huella: Huella,
+    /// Si el archivo empezaba con la marca de orden de bytes de UTF-8.
+    ///
+    /// Se recuerda para volver a escribirla. No llega al texto —se vería como un
+    /// carácter invisible al principio de la primera línea, y cualquiera lo
+    /// borraría sin saber qué era— pero **quitarla al guardar es cambiar el
+    /// archivo**: son tres bytes que alguna herramienta del otro lado puede
+    /// estar esperando, y nadie pidió que desaparecieran.
+    pub bom: bool,
     /// Si el archivo no se puede escribir. La interfaz lo dice antes de que
     /// alguien escriba media pantalla.
     pub solo_lectura: bool,
@@ -114,9 +127,25 @@ pub enum ErrorAlGuardar {
 
 /// Qué fin de línea usa un texto.
 ///
-/// Gana el que más aparece, y con empate o sin ninguno, `\n`. Un archivo mixto
-/// existe —los hay con `\r\n` en la cabecera y `\n` en el cuerpo— y lo único
-/// razonable es conservar el que predomina en lugar de imponer uno.
+/// Gana el que más aparece, y con empate o sin ninguno, `\n`.
+///
+/// # El archivo mixto se unifica, y es a propósito
+///
+/// Un archivo mixto existe —los hay con `\r\n` en la cabecera y `\n` en el
+/// cuerpo—. Acá se elige **uno** y [`restaurar`] lo aplica a todas las líneas,
+/// así que guardar un archivo mixto convierte las líneas minoritarias. Es la
+/// única excepción a la regla del módulo, y está elegida sabiendo lo que cuesta:
+///
+/// La alternativa es recordar el fin de línea de cada línea, y eso no se
+/// sostiene en cuanto alguien edita: al insertar o borrar líneas, la lista
+/// guardada deja de corresponder con el texto, y no hay forma de saber a qué
+/// línea nueva le toca qué. Terminaría conservando finales de línea en lugares
+/// que no son los originales, que es peor que unificar: un resultado
+/// arbitrario en lugar de uno predecible.
+///
+/// Así que se unifica y se dice. Un archivo mixto es casi siempre un accidente,
+/// y unificarlo suele ser lo que se quiere; lo que no se puede es prometer que
+/// no se toca. Ver `un_archivo_mixto_se_unifica_al_guardar`.
 pub fn fin_de_linea_de(texto: &str) -> FinDeLinea {
     let crlf = texto.matches("\r\n").count();
     // Los `\n` que no son parte de un `\r\n`.
@@ -152,12 +181,17 @@ pub fn normalizar(bruto: &str) -> (String, FinDeLinea, bool) {
 ///
 /// Es la inversa exacta de [`normalizar`]: hay un test que lo comprueba de ida y
 /// vuelta, porque de eso depende que guardar no ensucie el archivo.
-pub fn restaurar(texto: &str, fin: FinDeLinea, termina_con_salto: bool) -> String {
-    let mut salida = if fin == FinDeLinea::Crlf {
-        texto.replace('\n', "\r\n")
+pub fn restaurar(texto: &str, fin: FinDeLinea, termina_con_salto: bool, bom: bool) -> String {
+    let mut salida = String::new();
+    if bom {
+        salida.push('\u{feff}');
+    }
+
+    if fin == FinDeLinea::Crlf {
+        salida.push_str(&texto.replace('\n', "\r\n"));
     } else {
-        texto.to_string()
-    };
+        salida.push_str(texto);
+    }
 
     if termina_con_salto {
         salida.push_str(fin.como_texto());
@@ -212,9 +246,10 @@ pub fn abrir(ruta: &Path) -> Result<Documento, ErrorAlAbrir> {
 
     // `from_utf8` y no `from_utf8_lossy`: ver el encabezado del módulo.
     let bruto = String::from_utf8(bytes).map_err(|_| ErrorAlAbrir::NoEsTexto)?;
-    // El BOM se saca del texto y no se recuerda: reescribirlo es más riesgo que
-    // beneficio, y un editor que lo deja adelante lo muestra como un carácter
-    // invisible al principio de la primera línea.
+    // El BOM se saca del texto pero **se recuerda**: fuera del texto para que no
+    // se vea como un carácter invisible al principio de la primera línea, y
+    // recordado para volver a escribirlo al guardar.
+    let con_bom = bruto.starts_with('\u{feff}');
     let bruto = bruto.strip_prefix('\u{feff}').unwrap_or(&bruto);
 
     let (texto, fin_de_linea, termina_con_salto) = normalizar(bruto);
@@ -225,6 +260,7 @@ pub fn abrir(ruta: &Path) -> Result<Documento, ErrorAlAbrir> {
         fin_de_linea,
         termina_con_salto,
         huella: huella_de(&metadatos),
+        bom: con_bom,
         solo_lectura: escritura_negada(ruta, &metadatos),
     })
 }
@@ -252,6 +288,7 @@ pub fn guardar(
     texto: &str,
     fin: FinDeLinea,
     termina_con_salto: bool,
+    bom: bool,
     huella_esperada: Option<Huella>,
 ) -> Result<Huella, ErrorAlGuardar> {
     if let (Some(esperada), Ok(metadatos)) = (huella_esperada, std::fs::metadata(ruta)) {
@@ -261,7 +298,7 @@ pub fn guardar(
         }
     }
 
-    let contenido = restaurar(texto, fin, termina_con_salto);
+    let contenido = restaurar(texto, fin, termina_con_salto, bom);
     escribir_atomico(ruta, contenido.as_bytes()).map_err(|e| ErrorAlGuardar::Sistema(e.to_string()))?;
 
     let metadatos = std::fs::metadata(ruta).map_err(|e| ErrorAlGuardar::Sistema(e.to_string()))?;
@@ -283,6 +320,19 @@ pub fn guardar(
 fn escribir_atomico(ruta: &Path, contenido: &[u8]) -> std::io::Result<()> {
     use std::io::Write;
 
+    // El enlace simbólico se sigue hasta el archivo real.
+    //
+    // `rename` **no** sigue el destino, así que guardar sobre un enlace lo
+    // reemplazaba por un archivo común y dejaba el archivo apuntado intacto: la
+    // edición parecía funcionar y el archivo que se quería cambiar seguía igual.
+    // Es el caso de cualquier configuración enlazada desde un repositorio de
+    // dotfiles, que en este sistema es lo habitual.
+    //
+    // Si la ruta todavía no existe —un «guardar como» a un archivo nuevo—
+    // `canonicalize` falla y se usa la ruta tal cual, que es lo correcto.
+    let real = std::fs::canonicalize(ruta).unwrap_or_else(|_| ruta.to_path_buf());
+    let ruta = real.as_path();
+
     let directorio = ruta.parent().unwrap_or_else(|| Path::new("."));
     let nombre = ruta
         .file_name()
@@ -293,7 +343,7 @@ fn escribir_atomico(ruta: &Path, contenido: &[u8]) -> std::io::Result<()> {
     let permisos = std::fs::metadata(ruta).ok().map(|m| m.permissions());
 
     let resultado = (|| -> std::io::Result<()> {
-        let mut archivo = std::fs::File::create(&temporal)?;
+        let mut archivo = crear_temporal(&temporal, permisos.is_some())?;
         archivo.write_all(contenido)?;
         // `sync_all` antes de renombrar: sin esto el rename puede quedar visible
         // con el contenido todavía en el caché, y un corte de energía deja un
@@ -313,6 +363,42 @@ fn escribir_atomico(ruta: &Path, contenido: &[u8]) -> std::io::Result<()> {
     resultado
 }
 
+/// Crea el temporal del guardado atómico.
+///
+/// `hay_original` decide con qué permisos nace, y la distinción importa:
+///
+///  - **Si el archivo ya existe**, nace en 0600. `File::create` pide 0666 y deja
+///    que el umask lo recorte, o sea 0644 en la práctica: durante el rato que va
+///    desde escribir el contenido hasta copiar los permisos del original, el
+///    contenido de un archivo de 0600 —una clave, un token— quedaba legible para
+///    cualquiera en el mismo directorio. Los permisos del original se aplican
+///    unas líneas más abajo, así que el 0600 no queda.
+///  - **Si no existe** —un «guardar como» a un archivo nuevo— se deja que decida
+///    el umask, que es lo que hace cualquier programa al crear un archivo. Nacer
+///    en 0600 y quedarse ahí sería una sorpresa: un script recién guardado que
+///    nadie más puede leer.
+///
+/// Un temporal que quedó de un guardado interrumpido con este mismo PID se pisa:
+/// `create_new` fallaría para siempre y dejaría la aplicación sin poder guardar.
+fn crear_temporal(temporal: &Path, hay_original: bool) -> std::io::Result<std::fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    if !hay_original {
+        return std::fs::File::create(temporal);
+    }
+
+    let mut opciones = std::fs::OpenOptions::new();
+    opciones.write(true).create_new(true).mode(0o600);
+
+    match opciones.open(temporal) {
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+            std::fs::remove_file(temporal)?;
+            opciones.open(temporal)
+        }
+        otro => otro,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -322,7 +408,11 @@ mod tests {
     /// Normalizar y restaurar tiene que devolver **exactamente** lo que entró.
     fn ida_y_vuelta(bruto: &str) {
         let (texto, fin, salto) = normalizar(bruto);
-        assert_eq!(restaurar(&texto, fin, salto), bruto, "no volvió igual: {bruto:?}");
+        assert_eq!(
+            restaurar(&texto, fin, salto, false),
+            bruto,
+            "no volvió igual: {bruto:?}"
+        );
     }
 
     #[test]
@@ -414,6 +504,7 @@ mod tests {
                 &doc.texto,
                 doc.fin_de_linea,
                 doc.termina_con_salto,
+                doc.bom,
                 Some(doc.huella),
             )
             .unwrap();
@@ -434,7 +525,7 @@ mod tests {
         // porque la fecha tiene resolución de un segundo.
         std::fs::write(&ruta, b"lo que escribio el otro programa\n").unwrap();
 
-        let resultado = guardar(&ruta, "mio", doc.fin_de_linea, true, Some(doc.huella));
+        let resultado = guardar(&ruta, "mio", doc.fin_de_linea, true, false, Some(doc.huella));
 
         assert!(matches!(resultado, Err(ErrorAlGuardar::CambioEnDisco(_))));
         // Y lo del otro programa sigue ahí.
@@ -449,7 +540,7 @@ mod tests {
         // Es el caso de «guardar como» sobre un archivo que este editor no
         // abrió: no hay nada con qué comparar.
         let (_dir, ruta) = temporal("archivo.txt", b"algo\n");
-        assert!(guardar(&ruta, "otro", FinDeLinea::Lf, true, None).is_ok());
+        assert!(guardar(&ruta, "otro", FinDeLinea::Lf, true, false, None).is_ok());
         assert_eq!(std::fs::read_to_string(&ruta).unwrap(), "otro\n");
     }
 
@@ -463,7 +554,7 @@ mod tests {
         let (_dir, ruta) = temporal("secreto.conf", b"clave\n");
         std::fs::set_permissions(&ruta, std::fs::Permissions::from_mode(0o600)).unwrap();
 
-        guardar(&ruta, "otra clave", FinDeLinea::Lf, true, None).unwrap();
+        guardar(&ruta, "otra clave", FinDeLinea::Lf, true, false, None).unwrap();
 
         let modo = std::fs::metadata(&ruta).unwrap().permissions().mode() & 0o777;
         assert_eq!(modo, 0o600, "quedó en {modo:o}");
@@ -476,7 +567,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let ruta = dir.path().join("no-existe").join("archivo.txt");
 
-        assert!(guardar(&ruta, "algo", FinDeLinea::Lf, true, None).is_err());
+        assert!(guardar(&ruta, "algo", FinDeLinea::Lf, true, false, None).is_err());
         let sobras: Vec<_> = std::fs::read_dir(dir.path())
             .unwrap()
             .flatten()
@@ -515,11 +606,122 @@ mod tests {
     }
 
     #[test]
-    fn el_bom_no_llega_al_texto() {
-        // Si llegara, se vería como un carácter invisible al principio de la
-        // primera línea, y cualquiera lo borraría sin saber qué era.
+    fn el_bom_no_llega_al_texto_pero_se_recuerda() {
+        // Fuera del texto, porque si llegara se vería como un carácter invisible
+        // al principio de la primera línea y cualquiera lo borraría sin saber
+        // qué era. Recordado, porque quitarlo al guardar son tres bytes que
+        // nadie pidió cambiar.
         let (_dir, ruta) = temporal("con-bom.txt", "\u{feff}hola\n".as_bytes());
         let doc = abrir(&ruta).unwrap();
+
         assert_eq!(doc.texto, "hola");
+        assert!(doc.bom);
+    }
+
+    #[test]
+    fn guardar_devuelve_el_bom_al_archivo() {
+        // El caso que se perdía: abrir un archivo con marca de orden de bytes y
+        // guardarlo lo dejaba sin ella.
+        let (_dir, ruta) = temporal("con-bom.txt", "\u{feff}hola\n".as_bytes());
+        let doc = abrir(&ruta).unwrap();
+
+        guardar(
+            &ruta,
+            &doc.texto,
+            doc.fin_de_linea,
+            doc.termina_con_salto,
+            doc.bom,
+            Some(doc.huella),
+        )
+        .unwrap();
+
+        assert_eq!(std::fs::read(&ruta).unwrap(), "\u{feff}hola\n".as_bytes());
+    }
+
+    #[test]
+    fn un_archivo_sin_bom_no_gana_uno() {
+        let (_dir, ruta) = temporal("sin-bom.txt", b"hola\n");
+        let doc = abrir(&ruta).unwrap();
+
+        assert!(!doc.bom);
+        guardar(&ruta, &doc.texto, doc.fin_de_linea, true, doc.bom, None).unwrap();
+        assert_eq!(std::fs::read(&ruta).unwrap(), b"hola\n");
+    }
+
+    #[test]
+    fn un_archivo_mixto_se_unifica_al_guardar() {
+        // **Documenta la única excepción del módulo.** Las líneas minoritarias
+        // se convierten al fin de línea que predomina. Si esto alguna vez
+        // cambia, este test es el que tiene que fallar. El porqué está en
+        // `fin_de_linea_de`.
+        let (_dir, ruta) = temporal("mixto.txt", b"a\r\nb\r\nc\nd\r\n");
+        let doc = abrir(&ruta).unwrap();
+
+        guardar(
+            &ruta,
+            &doc.texto,
+            doc.fin_de_linea,
+            doc.termina_con_salto,
+            doc.bom,
+            Some(doc.huella),
+        )
+        .unwrap();
+
+        assert_eq!(std::fs::read(&ruta).unwrap(), b"a\r\nb\r\nc\r\nd\r\n");
+    }
+
+    #[test]
+    fn guardar_sobre_un_enlace_simbolico_escribe_el_archivo_apuntado() {
+        // El caso de cualquier configuración enlazada desde un repositorio de
+        // dotfiles, que en este sistema es lo habitual: `rename` no sigue el
+        // enlace, así que sin resolverlo antes el enlace quedaba reemplazado por
+        // un archivo común y el archivo de verdad seguía con su contenido viejo.
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("real.conf");
+        let enlace = dir.path().join("enlace.conf");
+        std::fs::write(&real, b"viejo\n").unwrap();
+        std::os::unix::fs::symlink(&real, &enlace).unwrap();
+
+        guardar(&enlace, "nuevo", FinDeLinea::Lf, true, false, None).unwrap();
+
+        assert_eq!(std::fs::read_to_string(&real).unwrap(), "nuevo\n");
+        assert!(
+            std::fs::symlink_metadata(&enlace).unwrap().file_type().is_symlink(),
+            "el enlace se reemplazó por un archivo común"
+        );
+    }
+
+    #[test]
+    fn un_temporal_que_quedo_de_antes_no_impide_guardar() {
+        // `create_new` fallaría para siempre contra un temporal huérfano del
+        // mismo PID, dejando la aplicación sin poder guardar ese archivo.
+        let (_dir, ruta) = temporal("archivo.txt", b"original\n");
+        let huerfano = ruta
+            .parent()
+            .unwrap()
+            .join(format!(".archivo.txt.vasak-text.{}", std::process::id()));
+        std::fs::write(&huerfano, b"basura").unwrap();
+
+        guardar(&ruta, "nuevo", FinDeLinea::Lf, true, false, None).unwrap();
+
+        assert_eq!(std::fs::read_to_string(&ruta).unwrap(), "nuevo\n");
+        assert!(!huerfano.exists(), "quedó el temporal");
+    }
+
+    #[test]
+    fn un_archivo_nuevo_no_nace_privado() {
+        use std::os::unix::fs::PermissionsExt;
+
+        // El temporal nace en 0600 cuando hay un original del que copiar
+        // permisos, pero un «guardar como» a un archivo nuevo tiene que quedar
+        // con lo que dicte el umask: un script recién guardado que nadie más
+        // puede leer es una sorpresa, no una protección.
+        let dir = tempfile::tempdir().unwrap();
+        let ruta = dir.path().join("nuevo.sh");
+
+        guardar(&ruta, "#!/bin/sh", FinDeLinea::Lf, true, false, None).unwrap();
+
+        let modo = std::fs::metadata(&ruta).unwrap().permissions().mode() & 0o077;
+        assert_ne!(modo, 0, "quedó sin permisos para grupo ni otros");
     }
 }

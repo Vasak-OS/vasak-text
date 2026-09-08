@@ -14,8 +14,41 @@
 //! del lado de Rust y devuelve la ruta elegida.
 
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use crate::documento::{self, Documento, ErrorAlAbrir, ErrorAlGuardar, FinDeLinea, Huella};
+
+/// Las rutas que llegaron y todavía no recogió nadie.
+///
+/// Existe por una carrera estrecha pero real: el aviso de la segunda instancia
+/// se emite a la ventana, y un evento emitido **antes** de que el frontend
+/// registre su `listen` no se entrega a nadie. Si alguien abre dos archivos
+/// seguidos desde el gestor de archivos, el segundo puede llegar mientras el
+/// WebView todavía está arrancando, y esas rutas se perdían sin ningún aviso.
+///
+/// Así que además de emitirlas se guardan acá, y `rutas_de_apertura` las
+/// entrega junto con las de la línea de órdenes. Que se entreguen dos veces no
+/// molesta: `abrir` en el almacén va a la pestaña que ya tiene ese archivo en
+/// lugar de abrir una segunda.
+#[derive(Default)]
+pub struct RutasPendientes(Mutex<Vec<String>>);
+
+impl RutasPendientes {
+    pub fn agregar(&self, rutas: Vec<String>) {
+        // Un `Mutex` envenenado no puede dejar la aplicación sin abrir archivos:
+        // lo peor que hay adentro es una lista de rutas.
+        if let Ok(mut guardadas) = self.0.lock() {
+            guardadas.extend(rutas);
+        }
+    }
+
+    fn recoger(&self) -> Vec<String> {
+        self.0
+            .lock()
+            .map(|mut guardadas| std::mem::take(&mut *guardadas))
+            .unwrap_or_default()
+    }
+}
 
 /// Abre un archivo.
 #[tauri::command]
@@ -34,6 +67,7 @@ pub fn guardar_documento(
     texto: String,
     fin_de_linea: FinDeLinea,
     termina_con_salto: bool,
+    bom: bool,
     huella: Option<Huella>,
 ) -> Result<Huella, ErrorAlGuardar> {
     documento::guardar(
@@ -41,6 +75,7 @@ pub fn guardar_documento(
         &texto,
         fin_de_linea,
         termina_con_salto,
+        bom,
         huella,
     )
 }
@@ -54,14 +89,18 @@ pub fn existe(ruta: String) -> bool {
     Path::new(&ruta).exists()
 }
 
-/// Las rutas que vinieron en la línea de órdenes.
+/// Las rutas que hay para abrir: las de la línea de órdenes y las que quedaron
+/// esperando.
 ///
 /// Es lo que hace que `vasak-text notas.md` —y el «abrir con» del gestor de
 /// archivos, que termina siendo lo mismo— abra el archivo en lugar de una
-/// ventana vacía.
+/// ventana vacía. Ver [`RutasPendientes`] para las que llegan de una segunda
+/// instancia mientras esto todavía arranca.
 #[tauri::command]
-pub fn rutas_de_apertura() -> Vec<String> {
-    rutas_de(std::env::args().skip(1))
+pub fn rutas_de_apertura(pendientes: tauri::State<'_, RutasPendientes>) -> Vec<String> {
+    let mut rutas = rutas_de(std::env::args().skip(1));
+    rutas.extend(pendientes.recoger());
+    rutas
 }
 
 /// Separa las rutas de lo que no lo es.

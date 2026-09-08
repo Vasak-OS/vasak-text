@@ -14,6 +14,13 @@
  * inactiva translúcida. Que dos aplicaciones del mismo escritorio tengan pestañas
  * distintas se nota apenas se ponen una al lado de la otra.
  *
+ * Y son alcanzables por teclado: `tablist`/`tab`, con Enter y espacio para
+ * activar. Eran `div` con un `@click` y nada más, así que quien no usa el mouse
+ * no tenía forma de cambiar de pestaña — los atajos de siguiente y anterior
+ * llegan sólo si el foco está en el editor. Sólo la activa entra en el recorrido
+ * del tabulador, que es cómo se recorre un `tablist`: se entra con el tabulador
+ * y se cambia con las flechas o con Enter sobre la que se enfoque.
+ *
  * Ver el encabezado de `tools/pestanas.ts`.
  */
 
@@ -101,7 +108,7 @@ onBeforeUnmount(terminarArrastre);
 </script>
 
 <template>
-  <div class="flex h-full min-w-0 items-center gap-1">
+  <div class="flex h-full min-w-0 items-center gap-1" role="tablist">
     <!-- El carril desborda y se desplaza; el botón de nueva se queda afuera
          para que no se vaya de la vista con las pestañas. -->
     <div
@@ -113,12 +120,17 @@ onBeforeUnmount(terminarArrastre);
         v-for="(pestana, indice) in pestanas"
         :key="pestana.id"
         class="relative flex w-34 max-w-34 shrink-0 cursor-pointer items-center gap-1.5 rounded-corner border border-ui-border p-1 px-3"
+        role="tab"
+        :aria-selected="pestana.id === activa"
+        :tabindex="pestana.id === activa ? 0 : -1"
         :class="[
           pestana.id === activa ? 'bg-primary font-bold text-tx-on-primary' : 'bg-ui-bg/80',
           encima === indice && arrastrando !== indice ? 'border-secondary' : '',
         ]"
         draggable="true"
         @click.stop="emit('activar', pestana.id)"
+        @keydown.enter.stop="emit('activar', pestana.id)"
+        @keydown.space.prevent.stop="emit('activar', pestana.id)"
         @dragstart="comenzarArrastre(indice, $event)"
         @dragover="sobre(indice, $event)"
         @drop="soltar(indice)"

@@ -63,6 +63,8 @@ const mensaje = computed(() => {
 			return t('avisos.guardado');
 		case 'cambio-en-disco':
 			return interpolar(t('avisos.cambio_en_disco'), nombre(aviso.ruta));
+		case 'ya-abierto':
+			return interpolar(t('avisos.ya_abierto'), nombre(aviso.ruta));
 		case 'no-se-pudo-abrir':
 			return porQueNoAbrio(aviso.ruta, aviso.causa);
 		case 'no-se-pudo-guardar':
