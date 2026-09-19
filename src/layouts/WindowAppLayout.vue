@@ -1,31 +1,37 @@
 <script lang="ts" setup>
-import TopBarComponent from '@/components/topbar/TopBarComponent.vue';
+/**
+ * La ventana del editor.
+ *
+ * No dibuja nada propio: el borde, la esquina, el fondo, la barra y los tres
+ * botones salen de `WindowFrame`, que es el mismo de todas las ventanas del
+ * escritorio. Estaba copiado acá, y ya había derivado de las copias vecinas.
+ *
+ * De arriba viene además algo que esta copia no tenía: la barra puede ir
+ * arriba, abajo, a la izquierda o a la derecha según `window.barPosition` en
+ * `~/.config/vasak/vasak.conf`, y las pestañas se acomodan solas —se encogen a
+ * un icono cuando está al costado y muestran el nombre al pasar por encima—.
+ *
+ * Los tres botones se quedan. Cerrar acá no cierra de una: `App.vue` intercepta
+ * `onCloseRequested` cuando hay algo sin guardar, así que el botón de la barra
+ * dispara la misma pregunta que el gestor de ventanas.
+ */
+import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
+import { WindowFrame } from '@vasakgroup/vue-libvasak';
+
+const { t } = useI18n();
 </script>
+
 <template>
-  <div
-    class="flex h-screen w-screen flex-col overflow-hidden rounded-corner-window border border-ui-border bg-ui-bg/80">
-    <!-- La barra de título acepta contenido.
-         Sin esto, lo único que se podía poner en la barra era el título de la
-         plantilla, y todo lo demás tenía que ir en una segunda barra debajo: en
-         el editor eso dejaba las pestañas en una fila propia, separadas del
-         icono y sin el aspecto de las de la terminal. Es lo que la terminal
-         resuelve componiendo `TopBarComponent` en su layout. -->
-    <TopBarComponent>
-      <slot name="topbar" />
-    </TopBarComponent>
-    <!-- El `slot` es lo que hace usable este layout.
-         Sin él, `<WindowAppLayout>…</WindowAppLayout>` descartaba en silencio todo
-         lo que se le pusiera dentro y la ventana abría vacía con el relleno de la
-         plantilla todavía puesto. En vasak-monitor costó una compilación y una
-         captura darse cuenta, porque no hay ningún error: simplemente no aparece
-         nada. -->
-    <div class="flex min-h-0 flex-1">
-      <slot>
-        <p class="p-4 text-tx-muted text-sm">
-          Poné el contenido de la aplicación dentro de
-          <code>&lt;WindowAppLayout&gt;</code>.
-        </p>
-      </slot>
+  <WindowFrame
+    :minimize-label="t('ventana.minimizar')"
+    :maximize-label="t('ventana.maximizar')"
+    :close-label="t('ventana.cerrar')">
+    <template v-if="$slots.identidad" #identidad><slot name="identidad" /></template>
+    <template v-if="$slots.barra" #barra><slot name="barra" /></template>
+    <template v-if="$slots.acciones" #acciones><slot name="acciones" /></template>
+
+    <div class="flex min-h-0 min-w-0 flex-1">
+      <slot />
     </div>
-  </div>
+  </WindowFrame>
 </template>
