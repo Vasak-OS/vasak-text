@@ -87,21 +87,44 @@ const pestanas = computed<ElementoDePestana[]>(() =>
 /**
  * Reordenar llega como la lista nueva, y el store la quiere como un movimiento.
  *
- * Se deduce comparando: la única que cambió de lugar es la que se arrastró.
- * Traducirlo acá y no cambiar el store es a propósito —`mover(desde, hasta)` es
+ * Traducirlo acá y no cambiar el store es a propósito: `mover(desde, hasta)` es
  * lo que prueban las pruebas de `tools/pestanas`, que son las que sostienen la
- * parte difícil: cuál queda activa después.
+ * parte difícil —cuál queda activa después de mover—.
+ *
+ * **No alcanza con el primer índice que difiere.** Con `[a, b, c] → [c, a, b]`
+ * eso da `desde = 0`, y lo que se movió fue la última al principio: el
+ * movimiento que sale de ahí deja `[b, a, c]`, que no es lo que se arrastró. El
+ * primer índice distinto es donde **empieza** el bloque que se corrió, y puede
+ * ser tanto el origen como el destino. Así que hay dos candidatos y se aplica el
+ * que reconstruye la lista emitida.
  */
 function reordenar(nuevas: ElementoDePestana[]) {
 	const antes = editor.lista.map((pestana) => pestana.id);
 	const despues = nuevas.map((pestana) => pestana.id);
-	// Sin cambios, `findIndex` devuelve `-1` y `indexOf` también: un par fuera
-	// de rango que `mover` descarta. No hay corte acá a propósito — un segundo
-	// lugar donde comprobar los límites es un segundo lugar donde se pueden
-	// desincronizar.
-	const desde = antes.findIndex((id, i) => id !== despues[i]);
-	const hasta = despues.indexOf(antes[desde]);
-	editor.mover(desde, hasta);
+	const primera = antes.findIndex((id, indice) => id !== despues[indice]);
+	if (primera < 0) return;
+
+	const mover = (desde: number, hasta: number) => {
+		const lista = [...antes];
+		const [movida] = lista.splice(desde, 1);
+		lista.splice(hasta, 0, movida);
+		return lista;
+	};
+	const iguales = (una: string[], otra: string[]) =>
+		una.length === otra.length && una.every((id, indice) => id === otra[indice]);
+
+	// Se fue hacia adelante: la que estaba en `primera` aparece más allá.
+	const haciaAdelante: [number, number] = [primera, despues.indexOf(antes[primera])];
+	// Se vino hacia atrás: la que ahora está en `primera` estaba más allá.
+	const haciaAtras: [number, number] = [antes.indexOf(despues[primera]), primera];
+
+	for (const [desde, hasta] of [haciaAdelante, haciaAtras]) {
+		if (desde < 0 || hasta < 0) continue;
+		if (iguales(mover(desde, hasta), despues)) {
+			editor.mover(desde, hasta);
+			return;
+		}
+	}
 }
 
 /** Los títulos que se muestran en el diálogo de sin guardar. */

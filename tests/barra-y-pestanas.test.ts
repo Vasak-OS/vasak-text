@@ -123,11 +123,38 @@ describe('reordenar', () => {
 		expect(editor.lista.map((pestana) => pestana.id)).toEqual([b, c, a]);
 	});
 
+	test('y también al revés: la última al principio', async () => {
+		// El caso que el primer intento erraba. `[a, b, c] → [c, a, b]` tiene su
+		// primer índice distinto en 0, y de ahí sale `mover(0, 1)`, que deja
+		// `[b, a, c]`: ni la pestaña que se arrastró ni el lugar donde se
+		// soltó. No da ningún error; la fila simplemente queda en otro orden que
+		// el que la mano dejó.
+		const { vista: ventana, editor } = await abrirEditorCon(3);
+		const [a, b, c] = editor.lista.map((pestana) => pestana.id);
+
+		const barra = ventana.findComponent(TabBar);
+		const pestanas = barra.props('tabs');
+		barra.vm.$emit('reorder', [pestanas[2], pestanas[0], pestanas[1]]);
+		await ventana.vm.$nextTick();
+
+		expect(editor.lista.map((pestana) => pestana.id)).toEqual([c, a, b]);
+	});
+
+	test('y una del medio a un costado', async () => {
+		// Ni el origen ni el destino son un extremo: es el arrastre corriente.
+		const { vista: ventana, editor } = await abrirEditorCon(4);
+		const ids = editor.lista.map((pestana) => pestana.id);
+
+		const barra = ventana.findComponent(TabBar);
+		const pestanas = barra.props('tabs');
+		barra.vm.$emit('reorder', [pestanas[0], pestanas[2], pestanas[1], pestanas[3]]);
+		await ventana.vm.$nextTick();
+
+		expect(editor.lista.map((pestana) => pestana.id)).toEqual([ids[0], ids[2], ids[1], ids[3]]);
+	});
+
 	test('una lista igual no mueve nada', async () => {
-		// Sin cambios el par que se deduce queda fuera de rango, y quien lo
-		// descarta es `tools/pestanas.mover`. Se comprueba desde acá porque es
-		// lo que se ve: arrastrar una pestaña y soltarla donde estaba no tiene
-		// que tocar nada.
+		// Arrastrar una pestaña y soltarla donde estaba no tiene que tocar nada.
 		const { vista: ventana, editor } = await abrirEditorCon(3);
 		const antes = editor.lista.map((pestana) => pestana.id);
 
