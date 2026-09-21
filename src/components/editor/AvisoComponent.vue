@@ -8,11 +8,20 @@
  * obliga a apretar «aceptar» para volver a lo que se estaba haciendo. El único
  * que sí pide decisión —el archivo cambió en disco— trae sus dos botones acá
  * mismo.
+ *
+ * Es una barra y no la caja del sistema: va pegada abajo y de lado a lado, y
+ * `AlertMessage` es una caja redondeada pensada para ir dentro de una sección.
+ * El color y el rol sí son los del sistema, y salen de su tabla en vez de estar
+ * copiados acá.
+ *
+ * El comentario va en el docblock y no arriba de la raíz de la plantilla: un
+ * comentario ahí la convierte en un fragmento, y con eso se pierde la raíz —los
+ * atributos dejan de caer y `classes()` devuelve vacío—.
  */
 
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
+import { CLASES_POR_TONO, rolDelTono, ThemeIcon } from '@vasakgroup/vue-libvasak';
 import { computed } from 'vue';
-import { useReactiveIcons } from '@/composables/useReactiveIcon';
 import type { Aviso } from '@/stores/editor';
 import type { ErrorAlAbrir } from '@/tools/documento';
 import { interpolar } from '@/tools/interpolar';
@@ -21,7 +30,6 @@ const props = defineProps<{ aviso: Aviso }>();
 const emit = defineEmits<{ cerrar: []; recargar: [id: string]; guardarComo: [id: string] }>();
 
 const { t } = useI18n();
-const { cerrarIcon } = useReactiveIcons({ cerrarIcon: 'window-close' });
 
 /** Sólo el nombre del archivo: la ruta completa no cabe y lo importante es cuál. */
 function nombre(ruta: string): string {
@@ -76,17 +84,25 @@ const mensaje = computed(() => {
 	}
 });
 
-/** Si es una falla o sólo una confirmación: cambia el color, no el texto. */
-const esError = computed(() => props.aviso.tipo !== 'guardado');
+/**
+ * Si es una falla o sólo una confirmación: cambia el color, no el texto.
+ *
+ * El color y el rol salen de la librería y no de una tabla de acá. Eran los
+ * mismos valores escritos a mano —el mismo borde, el mismo fondo, y `alert`
+ * para el error contra `status` para lo demás—, o sea una copia de la tabla
+ * del sistema que podía separarse sin que nada fallara.
+ */
+const tono = computed(() => (props.aviso.tipo === 'guardado' ? 'success' : 'error'));
+const clases = computed(() => CLASES_POR_TONO[tono.value]);
+const rol = computed(() => rolDelTono(tono.value));
 </script>
 
 <template>
   <div
     class="flex shrink-0 items-center gap-3 border-t px-3 py-2 text-sm"
-    :class="esError
-      ? 'border-status-error/40 bg-status-error/10 text-tx-main'
-      : 'border-status-success/40 bg-status-success/10 text-tx-main'"
-    :role="esError ? 'alert' : 'status'"
+    :class="clases"
+    :role="rol"
+    aria-atomic="true"
   >
     <span class="min-w-0 flex-1">{{ mensaje }}</span>
 
@@ -114,7 +130,7 @@ const esError = computed(() => props.aviso.tipo !== 'guardado');
       :aria-label="t('avisos.cerrar')"
       @click="emit('cerrar')"
     >
-      <img :src="cerrarIcon" class="size-3" alt="">
+      <ThemeIcon name="window-close" type="symbol" :size="12" />
     </button>
   </div>
 </template>
