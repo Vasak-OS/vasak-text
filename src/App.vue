@@ -13,14 +13,13 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useConfigStore } from '@vasakgroup/plugin-config-manager';
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { type ElementoDePestana, TabBar } from '@vasakgroup/vue-libvasak';
+import { type ElementoDePestana, TabBar, ThemeIcon } from '@vasakgroup/vue-libvasak';
 import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue';
 import AvisoComponent from '@/components/editor/AvisoComponent.vue';
 import BarraEstadoComponent from '@/components/editor/BarraEstadoComponent.vue';
 import EditorComponent from '@/components/editor/EditorComponent.vue';
 import OpcionesComponent from '@/components/editor/OpcionesComponent.vue';
 import SinGuardarComponent from '@/components/editor/SinGuardarComponent.vue';
-import { useReactiveIcons } from '@/composables/useReactiveIcon';
 import WindowAppLayout from '@/layouts/WindowAppLayout.vue';
 import { useEditorStore } from '@/stores/editor';
 import { OPCIONES_POR_OMISION, type OpcionesAlGuardar, preparar } from '@/tools/al-guardar';
@@ -31,17 +30,6 @@ const EVENTO_ABRIR = 'abrir-rutas';
 
 const editor = useEditorStore();
 const { t } = useI18n();
-const { appIcon, abrirIcon, guardarIcon, buscarIcon } = useReactiveIcons({
-	// El mismo nombre que declara el `.desktop`, y como icono y no como
-	// símbolo: es el dibujo de la aplicación, no un pictograma de acción. Sin
-	// esto la barra de título arrancaba con las pestañas pegadas al borde y sin
-	// nada que dijera qué aplicación es.
-	appIcon: { name: 'accessories-text-editor', type: 'icon' },
-	abrirIcon: 'document-open',
-	guardarIcon: 'document-save',
-	buscarIcon: 'edit-find',
-});
-
 const vista = useTemplateRef<InstanceType<typeof EditorComponent>>('vista');
 
 const linea = ref(1);
@@ -318,7 +306,9 @@ onUnmounted(() => {
          terminal: es la misma barra que lleva los botones, así que las pestañas
          quedan a su altura y no en una segunda fila. -->
     <template #identidad>
-      <img :src="appIcon" class="size-7 shrink-0" :alt="t('app.nombre')">
+      <!-- El mismo nombre que declara el `.desktop`, y como icono y no como
+           símbolo: es el dibujo de la aplicación, no un pictograma de acción. -->
+      <ThemeIcon name="accessories-text-editor" :size="28" :alt="t('app.nombre')" />
     </template>
 
     <template #barra>
@@ -344,7 +334,7 @@ onUnmounted(() => {
         :aria-label="t('acciones.buscar')"
         @click="vista?.buscar()"
       >
-        <img :src="buscarIcon" class="size-4" alt="">
+        <ThemeIcon name="edit-find" type="symbol" :size="16" />
       </button>
       <button
         type="button"
@@ -353,7 +343,7 @@ onUnmounted(() => {
         :aria-label="t('acciones.abrir')"
         @click="editor.abrirConDialogo()"
       >
-        <img :src="abrirIcon" class="size-4" alt="">
+        <ThemeIcon name="document-open" type="symbol" :size="16" />
       </button>
       <button
         type="button"
@@ -362,7 +352,7 @@ onUnmounted(() => {
         :aria-label="t('acciones.guardar')"
         @click="guardar()"
       >
-        <img :src="guardarIcon" class="size-4" alt="">
+        <ThemeIcon name="document-save" type="symbol" :size="16" />
       </button>
     </template>
 

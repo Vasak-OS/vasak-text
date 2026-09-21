@@ -9,10 +9,22 @@
  * Sirve para dos momentos: cerrar una pestaña y cerrar la ventana. El segundo
  * pregunta **una sola vez por todas** las pestañas sucias, porque encadenar
  * cinco diálogos para cerrar una ventana es su propio castigo.
+ *
+ * Lo dibuja la librería. Acá el foco entraba al panel y Escape cancelaba, que
+ * era la mitad de lo que `aria-modal="true"` promete; lo que faltaba era que el
+ * Tab no se escapara al editor de atrás y que al cerrar el foco volviera de
+ * donde salió. Con tres botones y ninguna respuesta razonable por omisión, que
+ * el Tab se vaya es justo lo que no puede pasar.
+ *
+ * El ancho propio —`max-w-md`— se va con lo demás: es más angosto que el del
+ * sistema, y pisarlo desde afuera no es estable en esa dirección. Las dos
+ * clases van en el mismo atributo y gana la que Tailwind haya emitido después
+ * en la hoja, que sigue el orden de la escala.
  */
 
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { computed, onMounted, useTemplateRef } from 'vue';
+import { Dialog, DialogContent, DialogTitle } from '@vasakgroup/vue-libvasak';
+import { computed } from 'vue';
 import { interpolar } from '@/tools/interpolar';
 
 const props = defineProps<{
@@ -24,16 +36,6 @@ const emit = defineEmits<{ guardar: []; descartar: []; cancelar: [] }>();
 
 const { t } = useI18n();
 
-const panel = useTemplateRef<HTMLDivElement>('panel');
-
-// El foco entra al abrir, y no alcanza con el `tabindex`: sin esto el
-// `keydown` no llega nunca —el foco sigue en el editor— y la tecla Escape,
-// que es la salida que la mano busca de algo que tapa la pantalla, no hacía
-// nada.
-onMounted(() => {
-	panel.value?.focus();
-});
-
 const mensaje = computed(() =>
 	props.titulos.length === 1
 		? interpolar(t('sin_guardar.una'), props.titulos[0])
@@ -42,20 +44,9 @@ const mensaje = computed(() =>
 </script>
 
 <template>
-  <!-- `Escape` cancela, con el foco puesto al abrir: es lo que la mano espera
-       de algo que tapa la pantalla. -->
-  <div
-    ref="panel"
-    class="absolute inset-0 z-10 flex items-center justify-center bg-ui-bg/70 backdrop-blur-sm"
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-    @keydown.esc="emit('cancelar')"
-  >
-    <div
-      class="mx-4 w-full max-w-md rounded-corner border border-ui-border-strong bg-ui-bg p-4 shadow-lg"
-    >
-      <h2 class="font-title text-base text-tx-main">{{ t('sin_guardar.titulo') }}</h2>
+  <Dialog :open="true" @update:open="emit('cancelar')">
+    <DialogContent>
+      <DialogTitle class="font-title text-base">{{ t('sin_guardar.titulo') }}</DialogTitle>
       <p class="mt-2 text-sm text-tx-muted">{{ mensaje }}</p>
 
       <!-- Varias: se listan, porque «hay 4 archivos sin guardar» no dice
@@ -89,6 +80,6 @@ const mensaje = computed(() =>
           {{ t('sin_guardar.guardar') }}
         </button>
       </div>
-    </div>
-  </div>
+    </DialogContent>
+  </Dialog>
 </template>
