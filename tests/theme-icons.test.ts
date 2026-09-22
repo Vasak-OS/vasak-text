@@ -18,6 +18,7 @@ import { olvidarLosIconosDelTema } from '@vasakgroup/vue-libvasak';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import AvisoComponent from '@/components/editor/AvisoComponent.vue';
+import type { Aviso } from '@/stores/editor';
 import { emit, olvidarTodo, setThemeIcon } from './dobles';
 
 /** Deja que terminen las promesas encadenadas del pedido del icono. */
@@ -40,9 +41,10 @@ async function settleWithReload() {
 	await settle();
 }
 
-const AVISO = {
+/** El aviso de que el archivo cambió en el disco, que es el que dibuja la cruz. */
+const AVISO: Aviso = {
+	tipo: 'cambio-en-disco',
 	id: 'uno',
-	tipo: 'cambio-externo' as const,
 	ruta: '/home/pato/notas.txt',
 };
 
