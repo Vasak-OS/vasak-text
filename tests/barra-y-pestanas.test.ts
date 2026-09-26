@@ -55,7 +55,7 @@ describe('la ventana', () => {
 	test('y no queda un segundo borde dibujado a mano', async () => {
 		const { vista: ventana } = await abrirEditorCon(1);
 
-		expect(ventana.findAll('.rounded-corner-window').length).toBe(1);
+		expect(ventana.findAll('.rounded-corner-window')).toHaveLength(1);
 	});
 
 	test('con los tres botones, porque cerrar pregunta antes', async () => {

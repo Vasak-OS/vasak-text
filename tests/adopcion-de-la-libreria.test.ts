@@ -98,7 +98,7 @@ describe('la pregunta de lo no guardado', () => {
 		await asentarse();
 
 		const botones = [...(elPanel()?.querySelectorAll<HTMLElement>('button') ?? [])];
-		expect(botones.length).toBe(3);
+		expect(botones).toHaveLength(3);
 
 		botones[botones.length - 1].focus();
 		const evento = teclearDentro('Tab');
