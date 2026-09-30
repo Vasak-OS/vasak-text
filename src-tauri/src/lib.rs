@@ -32,17 +32,7 @@ async fn pedir_al_frente() {
         }
     };
 
-    let mensaje = zbus::message::Message::method("/org/vasak/os/Desktop", "PresentApp")
-        .and_then(|b| b.destination("org.vasak.os.Desktop"))
-        .and_then(|b| b.interface("org.vasak.os.Desktop"))
-        .and_then(|b| b.with_flags(zbus::message::Flags::NoReplyExpected))
-        // Y sin arrancar el escritorio si no está: abrir un archivo de texto no
-        // tiene por qué encenderlo. `NoReplyExpected` no evita esa activación,
-        // hace falta decirlo aparte.
-        .and_then(|b| b.with_flags(zbus::message::Flags::NoAutoStart))
-        .and_then(|b| b.build(&(APP_ID,)));
-
-    match mensaje {
+    match present_app_message() {
         Ok(mensaje) => {
             if let Err(e) = conexion.send(&mensaje).await {
                 eprintln!("[vasak-text] no se pudo pedir traer la ventana al frente: {e}");
@@ -50,6 +40,20 @@ async fn pedir_al_frente() {
         }
         Err(e) => eprintln!("[vasak-text] no se pudo armar el pedido de traer al frente: {e}"),
     }
+}
+
+/// El pedido `PresentApp` al escritorio, sin mandarlo: separado para poder
+/// probar que va sin esperar respuesta y sin arrancar el escritorio.
+fn present_app_message() -> zbus::Result<zbus::message::Message> {
+    zbus::message::Message::method_call("/org/vasak/os/Desktop", "PresentApp")
+        .and_then(|b| b.destination("org.vasak.os.Desktop"))
+        .and_then(|b| b.interface("org.vasak.os.Desktop"))
+        .and_then(|b| b.with_flags(zbus::message::Flags::NoReplyExpected))
+        // Y sin arrancar el escritorio si no está: abrir un archivo de texto no
+        // tiene por qué encenderlo. `NoReplyExpected` no evita esa activación,
+        // hace falta decirlo aparte.
+        .and_then(|b| b.with_flags(zbus::message::Flags::NoAutoStart))
+        .and_then(|b| b.build(&(APP_ID,)))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -97,7 +101,8 @@ pub fn run() {
                 // alguien abre dos archivos seguidos desde el gestor: el segundo
                 // llega mientras el WebView arranca. Guardadas, las recoge
                 // `rutas_de_apertura`. Ver `RutasPendientes`.
-                app.state::<comandos::RutasPendientes>().agregar(rutas.clone());
+                app.state::<comandos::RutasPendientes>()
+                    .agregar(rutas.clone());
                 let _ = ventana.emit(EVENTO_ABRIR, rutas);
             }
         }))
@@ -127,4 +132,34 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar la aplicación");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use zbus::message::Flags;
+
+    #[test]
+    fn el_pedido_al_frente_va_al_escritorio_sin_respuesta_ni_arranque() {
+        let mensaje = present_app_message().expect("el pedido se arma");
+        let cabecera = mensaje.header();
+        assert_eq!(
+            cabecera.destination().map(|d| d.as_str()),
+            Some("org.vasak.os.Desktop")
+        );
+        assert_eq!(
+            cabecera.interface().map(|i| i.as_str()),
+            Some("org.vasak.os.Desktop")
+        );
+        assert_eq!(cabecera.member().map(|m| m.as_str()), Some("PresentApp"));
+        assert_eq!(
+            cabecera.path().map(|p| p.as_str()),
+            Some("/org/vasak/os/Desktop")
+        );
+        let banderas = cabecera.primary().flags();
+        assert!(banderas.contains(Flags::NoReplyExpected));
+        assert!(banderas.contains(Flags::NoAutoStart));
+        let (id,): (String,) = mensaje.body().deserialize().expect("cuerpo (s)");
+        assert_eq!(id, APP_ID);
+    }
 }
