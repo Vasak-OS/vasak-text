@@ -1,6 +1,6 @@
 [package]
 name = "vasak-text"
-version = "0.4.2"
+version = "0.4.3"
 description = "El editor de texto de VasakOS"
 authors = ["Vasak Group", "Joaquin (Pato) Decima"]
 edition = "2021"
@@ -58,7 +58,7 @@ tauri-plugin-single-instance = "2"
 # `set_focus` no alcanza —un cliente no puede robarse el foco— así que abrir un
 # archivo con el editor ya abierto dejaba la pestaña nueva en una ventana que
 # seguía atrás. `vasak-settings` resuelve lo mismo con este mensaje.
-zbus = { version = "4", default-features = false, features = ["tokio"] }
+zbus = { version = "5", default-features = false, features = ["tokio"] }
 
 [dev-dependencies]
 # Los tests de `documento.rs` escriben archivos de verdad: el guardado atómico,
