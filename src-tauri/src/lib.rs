@@ -101,7 +101,8 @@ pub fn run() {
                 // alguien abre dos archivos seguidos desde el gestor: el segundo
                 // llega mientras el WebView arranca. Guardadas, las recoge
                 // `rutas_de_apertura`. Ver `RutasPendientes`.
-                app.state::<comandos::RutasPendientes>().agregar(rutas.clone());
+                app.state::<comandos::RutasPendientes>()
+                    .agregar(rutas.clone());
                 let _ = ventana.emit(EVENTO_ABRIR, rutas);
             }
         }))
