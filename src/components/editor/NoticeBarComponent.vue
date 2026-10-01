@@ -25,7 +25,7 @@ import { ActionButton, AlertMessage, type NoticeTone } from '@vasakgroup/vue-lib
 import { computed } from 'vue';
 import type { Aviso } from '@/stores/editor';
 import type { ErrorAlAbrir } from '@/tools/documento';
-import { interpolar } from '@/tools/interpolar';
+import { interpolate } from '@/tools/interpolate';
 
 const props = defineProps<{ notice: Aviso }>();
 const emit = defineEmits<{ close: []; reload: [id: string]; saveAs: [id: string] }>();
@@ -50,17 +50,17 @@ function whyItDidNotOpen(path: string, cause: ErrorAlAbrir): string {
 
 	switch (cause.clase) {
 		case 'no-existe':
-			return interpolar(t('avisos.no_existe'), file);
+			return interpolate(t('avisos.no_existe'), file);
 		case 'es-un-directorio':
-			return interpolar(t('avisos.es_un_directorio'), file);
+			return interpolate(t('avisos.es_un_directorio'), file);
 		case 'demasiado-grande':
-			return interpolar(t('avisos.demasiado_grande'), file, humanSize(cause.detalle));
+			return interpolate(t('avisos.demasiado_grande'), file, humanSize(cause.detalle));
 		case 'binario':
-			return interpolar(t('avisos.binario'), file);
+			return interpolate(t('avisos.binario'), file);
 		case 'no-es-texto':
-			return interpolar(t('avisos.no_es_texto'), file);
+			return interpolate(t('avisos.no_es_texto'), file);
 		case 'sistema':
-			return interpolar(t('avisos.error_al_abrir'), file, cause.detalle);
+			return interpolate(t('avisos.error_al_abrir'), file, cause.detalle);
 	}
 }
 
@@ -71,13 +71,13 @@ const message = computed(() => {
 		case 'guardado':
 			return t('avisos.guardado');
 		case 'cambio-en-disco':
-			return interpolar(t('avisos.cambio_en_disco'), fileName(notice.ruta));
+			return interpolate(t('avisos.cambio_en_disco'), fileName(notice.ruta));
 		case 'ya-abierto':
-			return interpolar(t('avisos.ya_abierto'), fileName(notice.ruta));
+			return interpolate(t('avisos.ya_abierto'), fileName(notice.ruta));
 		case 'no-se-pudo-abrir':
 			return whyItDidNotOpen(notice.ruta, notice.causa);
 		case 'no-se-pudo-guardar':
-			return interpolar(
+			return interpolate(
 				t('avisos.error_al_guardar'),
 				fileName(notice.ruta),
 				notice.causa.clase === 'sistema' ? notice.causa.detalle : ''

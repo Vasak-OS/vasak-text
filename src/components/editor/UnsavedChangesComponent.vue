@@ -28,7 +28,7 @@
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { ActionButton, Dialog, DialogContent, DialogTitle } from '@vasakgroup/vue-libvasak';
 import { computed } from 'vue';
-import { interpolar } from '@/tools/interpolar';
+import { interpolate } from '@/tools/interpolate';
 
 const props = defineProps<{
 	/** Los títulos de las pestañas con cambios. Una sola, o varias al cerrar. */
@@ -41,8 +41,8 @@ const { t } = useI18n();
 
 const message = computed(() =>
 	props.titles.length === 1
-		? interpolar(t('sin_guardar.una'), props.titles[0])
-		: interpolar(t('sin_guardar.varias'), props.titles.length)
+		? interpolate(t('sin_guardar.una'), props.titles[0])
+		: interpolate(t('sin_guardar.varias'), props.titles.length)
 );
 </script>
 
