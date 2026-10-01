@@ -20,7 +20,9 @@
  * dejó de pasarse del borde en una ventana más angosta que él.
  *
  * El fondo cierra el panel al hacer clic afuera, que es lo que la mano espera
- * de algo que se abrió con un clic. Lo dice acá y no arriba de la raíz de la
+ * de algo que se abrió con un clic. Con `.self` en el fondo y no con un
+ * `@click.stop` en el panel: así el panel no lleva un manejador de clic sin
+ * su equivalente de teclado, y un clic adentro sigue sin cerrarlo. Lo dice acá y no arriba de la raíz de la
  * plantilla: un comentario ahí la vuelve un fragmento.
  */
 
@@ -80,12 +82,11 @@ function toggle(field: keyof OpcionesAlGuardar) {
     ref="panel"
     class="absolute inset-0 z-10"
     tabindex="-1"
-    @click="emit('close')"
+    @click.self="emit('close')"
     @keydown.esc="emit('close')"
   >
     <div
       class="absolute right-2 bottom-8 max-h-[calc(100%-2.5rem)] w-72 max-w-[calc(100%-1rem)] overflow-y-auto rounded-corner-m border border-ui-border-strong bg-ui-bg p-3 text-sm shadow-surface-l"
-      @click.stop
     >
       <h2 class="font-title text-tx-main">{{ t('opciones.titulo') }}</h2>
 

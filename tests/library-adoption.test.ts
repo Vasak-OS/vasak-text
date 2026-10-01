@@ -310,6 +310,14 @@ describe('las opciones', () => {
 		expect(options.emitted('close')).toHaveLength(2);
 	});
 
+	test('pero un clic adentro del panel no lo cierra', async () => {
+		const options = track(mount(OptionsComponent, { props, attachTo: document.body }));
+
+		await options.get('.shadow-surface-l').trigger('click');
+		await options.get('h2').trigger('click');
+		expect(options.emitted('close')).toBeUndefined();
+	});
+
 	test('y el panel no se sale de una ventana más angosta que él', async () => {
 		// Es el panel propio que espera al `Popover` de la 2.2.0: mide 18rem, y
 		// en una ventana de 240 px se cortaba del lado izquierdo.
