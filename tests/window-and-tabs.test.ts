@@ -13,24 +13,24 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { TabBar, WindowFrame } from '@vasakgroup/vue-libvasak';
+import { ActionButton, TabBar, WindowFrame } from '@vasakgroup/vue-libvasak';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import App from '@/App.vue';
 import { useEditorStore } from '@/stores/editor';
 import { olvidarTodo } from './dobles';
 
-let vista: VueWrapper | null = null;
+let view: VueWrapper | null = null;
 
 /** Abre el editor con las pestañas que diga, ya montado. */
-async function abrirEditorCon(cuantas: number) {
+async function openEditorWith(count: number) {
 	const editor = useEditorStore();
-	vista = mount(App);
-	await vista.vm.$nextTick();
+	view = mount(App);
+	await view.vm.$nextTick();
 	// `onMounted` abre una pestaña vacía por su cuenta; las demás se agregan acá.
-	while (editor.lista.length < cuantas) editor.nueva();
-	await vista.vm.$nextTick();
-	return { vista, editor };
+	while (editor.lista.length < count) editor.nueva();
+	await view.vm.$nextTick();
+	return { view, editor };
 }
 
 beforeEach(() => {
@@ -40,30 +40,30 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	vista?.unmount();
-	vista = null;
+	view?.unmount();
+	view = null;
 	olvidarTodo();
 });
 
 describe('la ventana', () => {
 	test('usa el marco compartido', async () => {
-		const { vista: ventana } = await abrirEditorCon(1);
+		const { view: frame } = await openEditorWith(1);
 
-		expect(ventana.findComponent(WindowFrame).exists()).toBe(true);
+		expect(frame.findComponent(WindowFrame).exists()).toBe(true);
 	});
 
 	test('y no queda un segundo borde dibujado a mano', async () => {
-		const { vista: ventana } = await abrirEditorCon(1);
+		const { view: frame } = await openEditorWith(1);
 
-		expect(ventana.findAll('.rounded-corner-window')).toHaveLength(1);
+		expect(frame.findAll('.rounded-corner-window')).toHaveLength(1);
 	});
 
 	test('con los tres botones, porque cerrar pregunta antes', async () => {
 		// El editor no es un cuadro de diálogo: se cierra. Y cerrarlo con algo
 		// sin guardar no pierde nada, porque `onCloseRequested` lo intercepta.
-		const { vista: ventana } = await abrirEditorCon(1);
+		const { view: frame } = await openEditorWith(1);
 
-		expect(ventana.findComponent(WindowFrame).props('controls')).toEqual([
+		expect(frame.findComponent(WindowFrame).props('controls')).toEqual([
 			'minimize',
 			'maximize',
 			'close',
@@ -71,17 +71,39 @@ describe('la ventana', () => {
 	});
 });
 
+describe('las acciones de la barra', () => {
+	test('son tres botones fantasma de la librería, con icono del tema y nombre', async () => {
+		// Eran tres `<button>` con su borde y su fondo dibujados a mano.
+		const { view: frame } = await openEditorWith(1);
+		const buttons = frame.findAllComponents(ActionButton).filter((b) => b.props('icon'));
+
+		expect(
+			buttons.map((b) => [b.props('icon'), b.props('variant'), b.props('size'), b.props('iconAlt')])
+		).toEqual([
+			['edit-find', 'ghost', 'sm', 'acciones.buscar'],
+			['document-open', 'ghost', 'sm', 'acciones.abrir'],
+			['document-save', 'ghost', 'sm', 'acciones.guardar'],
+		]);
+		// Sólo icono: el nombre accesible es el de `iconAlt`.
+		expect(buttons.map((b) => b.attributes('aria-label'))).toEqual([
+			'acciones.buscar',
+			'acciones.abrir',
+			'acciones.guardar',
+		]);
+	});
+});
+
 describe('las pestañas', () => {
 	test('son las de la librería y no una copia', async () => {
-		const { vista: ventana } = await abrirEditorCon(1);
+		const { view: frame } = await openEditorWith(1);
 
-		expect(ventana.findComponent(TabBar).exists()).toBe(true);
+		expect(frame.findComponent(TabBar).exists()).toBe(true);
 	});
 
 	test('una sin archivo se llama «sin título» y no queda en blanco', async () => {
-		const { vista: ventana } = await abrirEditorCon(1);
+		const { view: frame } = await openEditorWith(1);
 
-		expect(ventana.findComponent(TabBar).props('tabs')[0].label).toBe(
+		expect(frame.findComponent(TabBar).props('tabs')[0].label).toBe(
 			'pestanas.nueva_titulo'
 		);
 	});
@@ -90,18 +112,18 @@ describe('las pestañas', () => {
 		// A diferencia de la terminal, que esconde el botón cuando queda una:
 		// acá cerrar el último archivo abierto es algo que se pide de verdad, y
 		// deja una pestaña vacía en su lugar.
-		const { vista: ventana } = await abrirEditorCon(1);
+		const { view: frame } = await openEditorWith(1);
 
-		expect(ventana.findComponent(TabBar).props('tabs')[0].closable).toBe(true);
+		expect(frame.findComponent(TabBar).props('tabs')[0].closable).toBe(true);
 	});
 
 	test('el punto de sin guardar llega a la pestaña', async () => {
-		const { vista: ventana, editor } = await abrirEditorCon(1);
+		const { view: frame, editor } = await openEditorWith(1);
 
 		editor.marcarSucio(editor.lista[0].id, true);
-		await ventana.vm.$nextTick();
+		await frame.vm.$nextTick();
 
-		expect(ventana.findComponent(TabBar).props('tabs')[0].dirty).toBe(true);
+		expect(frame.findComponent(TabBar).props('tabs')[0].dirty).toBe(true);
 	});
 });
 
@@ -111,16 +133,16 @@ describe('reordenar', () => {
 		// `mover(desde, hasta)`, que es lo que sostienen las pruebas de
 		// `tools/pestanas` —cuál queda activa después de mover es la parte
 		// difícil, y no se reimplementa acá—.
-		const { vista: ventana, editor } = await abrirEditorCon(3);
-		const [a, b, c] = editor.lista.map((pestana) => pestana.id);
+		const { view: frame, editor } = await openEditorWith(3);
+		const [a, b, c] = editor.lista.map((tab) => tab.id);
 
-		const barra = ventana.findComponent(TabBar);
-		const reordenadas = barra.props('tabs');
+		const bar = frame.findComponent(TabBar);
+		const reordered = bar.props('tabs');
 		// La primera al final, que es el arrastre más largo posible.
-		barra.vm.$emit('reorder', [reordenadas[1], reordenadas[2], reordenadas[0]]);
-		await ventana.vm.$nextTick();
+		bar.vm.$emit('reorder', [reordered[1], reordered[2], reordered[0]]);
+		await frame.vm.$nextTick();
 
-		expect(editor.lista.map((pestana) => pestana.id)).toEqual([b, c, a]);
+		expect(editor.lista.map((tab) => tab.id)).toEqual([b, c, a]);
 	});
 
 	test('y también al revés: la última al principio', async () => {
@@ -129,39 +151,39 @@ describe('reordenar', () => {
 		// `[b, a, c]`: ni la pestaña que se arrastró ni el lugar donde se
 		// soltó. No da ningún error; la fila simplemente queda en otro orden que
 		// el que la mano dejó.
-		const { vista: ventana, editor } = await abrirEditorCon(3);
-		const [a, b, c] = editor.lista.map((pestana) => pestana.id);
+		const { view: frame, editor } = await openEditorWith(3);
+		const [a, b, c] = editor.lista.map((tab) => tab.id);
 
-		const barra = ventana.findComponent(TabBar);
-		const pestanas = barra.props('tabs');
-		barra.vm.$emit('reorder', [pestanas[2], pestanas[0], pestanas[1]]);
-		await ventana.vm.$nextTick();
+		const bar = frame.findComponent(TabBar);
+		const tabs = bar.props('tabs');
+		bar.vm.$emit('reorder', [tabs[2], tabs[0], tabs[1]]);
+		await frame.vm.$nextTick();
 
-		expect(editor.lista.map((pestana) => pestana.id)).toEqual([c, a, b]);
+		expect(editor.lista.map((tab) => tab.id)).toEqual([c, a, b]);
 	});
 
 	test('y una del medio a un costado', async () => {
 		// Ni el origen ni el destino son un extremo: es el arrastre corriente.
-		const { vista: ventana, editor } = await abrirEditorCon(4);
-		const ids = editor.lista.map((pestana) => pestana.id);
+		const { view: frame, editor } = await openEditorWith(4);
+		const ids = editor.lista.map((tab) => tab.id);
 
-		const barra = ventana.findComponent(TabBar);
-		const pestanas = barra.props('tabs');
-		barra.vm.$emit('reorder', [pestanas[0], pestanas[2], pestanas[1], pestanas[3]]);
-		await ventana.vm.$nextTick();
+		const bar = frame.findComponent(TabBar);
+		const tabs = bar.props('tabs');
+		bar.vm.$emit('reorder', [tabs[0], tabs[2], tabs[1], tabs[3]]);
+		await frame.vm.$nextTick();
 
-		expect(editor.lista.map((pestana) => pestana.id)).toEqual([ids[0], ids[2], ids[1], ids[3]]);
+		expect(editor.lista.map((tab) => tab.id)).toEqual([ids[0], ids[2], ids[1], ids[3]]);
 	});
 
 	test('una lista igual no mueve nada', async () => {
 		// Arrastrar una pestaña y soltarla donde estaba no tiene que tocar nada.
-		const { vista: ventana, editor } = await abrirEditorCon(3);
-		const antes = editor.lista.map((pestana) => pestana.id);
+		const { view: frame, editor } = await openEditorWith(3);
+		const before = editor.lista.map((tab) => tab.id);
 
-		const barra = ventana.findComponent(TabBar);
-		barra.vm.$emit('reorder', [...barra.props('tabs')]);
-		await ventana.vm.$nextTick();
+		const bar = frame.findComponent(TabBar);
+		bar.vm.$emit('reorder', [...bar.props('tabs')]);
+		await frame.vm.$nextTick();
 
-		expect(editor.lista.map((pestana) => pestana.id)).toEqual(antes);
+		expect(editor.lista.map((tab) => tab.id)).toEqual(before);
 	});
 });

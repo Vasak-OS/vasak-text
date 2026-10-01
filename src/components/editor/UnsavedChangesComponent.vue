@@ -20,65 +20,64 @@
  * sistema, y pisarlo desde afuera no es estable en esa dirección. Las dos
  * clases van en el mismo atributo y gana la que Tailwind haya emitido después
  * en la hoja, que sigue el orden de la escala.
+ *
+ * Los tres botones son `ActionButton`: secundario para cancelar, peligro para
+ * descartar y primario para guardar, que es la respuesta que no pierde nada.
  */
 
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { Dialog, DialogContent, DialogTitle } from '@vasakgroup/vue-libvasak';
+import { ActionButton, Dialog, DialogContent, DialogTitle } from '@vasakgroup/vue-libvasak';
 import { computed } from 'vue';
 import { interpolar } from '@/tools/interpolar';
 
 const props = defineProps<{
 	/** Los títulos de las pestañas con cambios. Una sola, o varias al cerrar. */
-	titulos: string[];
+	titles: string[];
 }>();
 
-const emit = defineEmits<{ guardar: []; descartar: []; cancelar: [] }>();
+const emit = defineEmits<{ save: []; discard: []; cancel: [] }>();
 
 const { t } = useI18n();
 
-const mensaje = computed(() =>
-	props.titulos.length === 1
-		? interpolar(t('sin_guardar.una'), props.titulos[0])
-		: interpolar(t('sin_guardar.varias'), props.titulos.length)
+const message = computed(() =>
+	props.titles.length === 1
+		? interpolar(t('sin_guardar.una'), props.titles[0])
+		: interpolar(t('sin_guardar.varias'), props.titles.length)
 );
 </script>
 
 <template>
-  <Dialog :open="true" @update:open="emit('cancelar')">
+  <Dialog :open="true" @update:open="emit('cancel')">
     <DialogContent>
       <DialogTitle class="font-title text-base">{{ t('sin_guardar.titulo') }}</DialogTitle>
-      <p class="mt-2 text-sm text-tx-muted">{{ mensaje }}</p>
+      <p class="mt-2 text-sm text-tx-muted">{{ message }}</p>
 
       <!-- Varias: se listan, porque «hay 4 archivos sin guardar» no dice
            cuáles, y la decisión depende de cuáles sean. -->
-      <ul v-if="titulos.length > 1" class="mt-2 max-h-32 overflow-y-auto text-sm text-tx-main">
-        <li v-for="titulo in titulos" :key="titulo" class="truncate">· {{ titulo }}</li>
+      <ul v-if="titles.length > 1" class="mt-2 max-h-32 overflow-y-auto text-sm text-tx-main">
+        <li v-for="title in titles" :key="title" class="truncate">· {{ title }}</li>
       </ul>
 
-      <div class="mt-4 flex justify-end gap-2 text-sm">
-        <button
-          type="button"
-          class="rounded-corner-sm border border-ui-border-strong px-3 py-1 text-tx-main hover:bg-ui-surface"
-          @click="emit('cancelar')"
-        >
-          {{ t('sin_guardar.cancelar') }}
-        </button>
-        <!-- Descartar no es el botón destacado aunque cierre más rápido: es el
-             único de los tres que pierde algo. -->
-        <button
-          type="button"
-          class="rounded-corner-sm border border-status-error/50 px-3 py-1 text-tx-main hover:bg-status-error/20"
-          @click="emit('descartar')"
-        >
-          {{ t('sin_guardar.descartar') }}
-        </button>
-        <button
-          type="button"
-          class="rounded-corner-sm bg-primary px-3 py-1 text-tx-on-primary hover:opacity-90"
-          @click="emit('guardar')"
-        >
-          {{ t('sin_guardar.guardar') }}
-        </button>
+      <!-- En fila y a la derecha, como antes; `flex-wrap` para que en una
+           ventana angosta bajen de renglón en lugar de salirse. -->
+      <div class="mt-4 flex flex-wrap justify-end gap-2">
+        <ActionButton
+          variant="secondary"
+          :label="t('sin_guardar.cancelar')"
+          @click="emit('cancel')"
+        />
+        <!-- Descartar no es el destacado aunque cierre más rápido: es el único
+             de los tres que pierde algo, y por eso lleva el tono de peligro. -->
+        <ActionButton
+          variant="danger"
+          :label="t('sin_guardar.descartar')"
+          @click="emit('discard')"
+        />
+        <ActionButton
+          variant="primary"
+          :label="t('sin_guardar.guardar')"
+          @click="emit('save')"
+        />
       </div>
     </DialogContent>
   </Dialog>

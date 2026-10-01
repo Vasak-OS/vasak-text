@@ -17,7 +17,7 @@ import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { olvidarLosIconosDelTema } from '@vasakgroup/vue-libvasak';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
-import AvisoComponent from '@/components/editor/AvisoComponent.vue';
+import NoticeBarComponent from '@/components/editor/NoticeBarComponent.vue';
 import type { Aviso } from '@/stores/editor';
 import { emit, olvidarTodo, setThemeIcon } from './dobles';
 
@@ -56,7 +56,7 @@ async function advancePastReload() {
 }
 
 /** El aviso de que el archivo cambió en el disco, que es el que dibuja la cruz. */
-const AVISO: Aviso = {
+const NOTICE: Aviso = {
 	tipo: 'cambio-en-disco',
 	id: 'uno',
 	ruta: '/home/pato/notas.txt',
@@ -65,7 +65,7 @@ const AVISO: Aviso = {
 let mounted: VueWrapper | null = null;
 
 function mountNotice() {
-	mounted = mount(AvisoComponent, { props: { aviso: AVISO } });
+	mounted = mount(NoticeBarComponent, { props: { notice: NOTICE } });
 	return mounted;
 }
 
@@ -86,12 +86,12 @@ afterEach(() => {
 
 describe('el aviso dibuja su cruz con el icono del tema', () => {
 	test('la pide por nombre y en la variante monocroma', async () => {
-		setThemeIcon('window-close', 'data:image/svg+xml,cruz-clara');
+		setThemeIcon('window-close-symbolic', 'data:image/svg+xml,cruz-clara');
 
-		const aviso = mountNotice();
+		const notice = mountNotice();
 		await settle();
 
-		expect(aviso.get('img').attributes('src')).toBe('data:image/svg+xml,cruz-clara');
+		expect(notice.get('img').attributes('src')).toBe('data:image/svg+xml,cruz-clara');
 	});
 
 	test('y al cambiar el tema le cambia el dibujo', async () => {
@@ -99,17 +99,17 @@ describe('el aviso dibuja su cruz con el icono del tema', () => {
 		// pasa igual—, así que no es lo que trae este cambio. Está porque es la
 		// promesa de fondo del icono por nombre, y la que rompería de verdad
 		// alguien que volviera a resolver la ruta a mano.
-		setThemeIcon('window-close', 'data:image/svg+xml,cruz-clara');
+		setThemeIcon('window-close-symbolic', 'data:image/svg+xml,cruz-clara');
 
-		const aviso = mountNotice();
+		const notice = mountNotice();
 		await settle();
-		expect(aviso.get('img').attributes('src')).toBe('data:image/svg+xml,cruz-clara');
+		expect(notice.get('img').attributes('src')).toBe('data:image/svg+xml,cruz-clara');
 
-		setThemeIcon('window-close', 'data:image/svg+xml,cruz-oscura');
+		setThemeIcon('window-close-symbolic', 'data:image/svg+xml,cruz-oscura');
 		await emit('vicons:theme-changed');
 		await advancePastReload();
 
-		expect(aviso.get('img').attributes('src')).toBe('data:image/svg+xml,cruz-oscura');
+		expect(notice.get('img').attributes('src')).toBe('data:image/svg+xml,cruz-oscura');
 	});
 
 	test('la recarga se agenda, no pasa en el acto', async () => {
@@ -119,12 +119,12 @@ describe('el aviso dibuja su cruz con el icono del tema', () => {
 		// que una ráfaga de anuncios —el tema de iconos y el de GTK llegan
 		// juntos— no dispare dos barridos, y lo que hace que en una lista larga
 		// se recargue primero lo que se ve.
-		setThemeIcon('window-close', 'data:image/svg+xml,cruz-clara');
+		setThemeIcon('window-close-symbolic', 'data:image/svg+xml,cruz-clara');
 
-		const aviso = mountNotice();
+		const notice = mountNotice();
 		await settle();
 
-		setThemeIcon('window-close', 'data:image/svg+xml,cruz-oscura');
+		setThemeIcon('window-close-symbolic', 'data:image/svg+xml,cruz-oscura');
 		await emit('vicons:theme-changed');
 		// Todas las microtareas que quieran, sin mover el reloj: así el camino
 		// **sin** planificador —que resuelve con promesas y nada más— llega a
@@ -132,9 +132,9 @@ describe('el aviso dibuja su cruz con el icono del tema', () => {
 		// hay forma de que se cumplan los 100 ms por accidente.
 		await settle();
 
-		expect(aviso.get('img').attributes('src')).not.toBe('data:image/svg+xml,cruz-oscura');
+		expect(notice.get('img').attributes('src')).not.toBe('data:image/svg+xml,cruz-oscura');
 
 		await advancePastReload();
-		expect(aviso.get('img').attributes('src')).toBe('data:image/svg+xml,cruz-oscura');
+		expect(notice.get('img').attributes('src')).toBe('data:image/svg+xml,cruz-oscura');
 	});
 });
