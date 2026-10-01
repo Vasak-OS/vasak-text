@@ -25,16 +25,18 @@ import {
 	Badge,
 	Checkbox,
 	olvidarLosIconosDelTema,
+	Popover,
+	PopoverContent,
 	SegmentedControl,
 	TONE_CLASSES,
 } from '@vasakgroup/vue-libvasak';
 import { mount, type VueWrapper } from '@vue/test-utils';
-import { type Component, nextTick } from 'vue';
+import { type Component, h, nextTick, ref } from 'vue';
 import NoticeBarComponent from '@/components/editor/NoticeBarComponent.vue';
 import OptionsComponent from '@/components/editor/OptionsComponent.vue';
 import StatusBarComponent from '@/components/editor/StatusBarComponent.vue';
 import UnsavedChangesComponent from '@/components/editor/UnsavedChangesComponent.vue';
-import { OPCIONES_POR_OMISION } from '@/tools/al-guardar';
+import { DEFAULT_SAVE_OPTIONS } from '@/tools/save-options';
 import { olvidarTodo } from './dobles';
 
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -57,8 +59,12 @@ afterEach(() => {
 	// El diálogo se teletransporta al `body`, así que no se lo lleva el
 	// desmontaje: una prueba que falla dejaría su panel puesto y la siguiente
 	// encontraría **ése** al preguntar por `[role="dialog"]`.
+	// El globo de opciones también es un `dialog`, pero cuelga directo del
+	// `body`: ahí se va él solo y no su padre, que sería el `body` entero.
 	for (const leftover of document.body.querySelectorAll('[role="dialog"]')) {
-		leftover.parentElement?.remove();
+		const parent = leftover.parentElement;
+		if (parent && parent !== document.body) parent.remove();
+		else leftover.remove();
 	}
 	olvidarTodo();
 	olvidarLosIconosDelTema();
@@ -232,9 +238,13 @@ describe('la barra de estado', () => {
 		expect(buttons[1].props('label')).toBe('opciones.espacios · estado.ajuste_linea');
 
 		await buttons[0].trigger('click');
-		await buttons[1].trigger('click');
 		expect(bar.emitted('goToLine')).toHaveLength(1);
-		expect(bar.emitted('options')).toHaveLength(1);
+
+		// El resumen ya no avisa con un evento: es el disparador del globo, y
+		// lo dice como tal.
+		expect(buttons[1].attributes('aria-haspopup')).toBe('dialog');
+		expect(buttons[1].attributes('aria-expanded')).toBe('false');
+		expect(bar.emitted('options')).toBeUndefined();
 	});
 
 	test('«sólo lectura» es una insignia de advertencia, y sólo cuando lo es', async () => {
@@ -257,29 +267,202 @@ describe('la barra de estado', () => {
 	});
 });
 
+/**
+ * Las opciones armadas como en `App.vue`: el globo envuelve la barra de estado
+ * —que tiene el disparador y el ancla— y el panel.
+ *
+ * El contenido se teletransporta al `body`, así que se busca ahí y no en el
+ * envoltorio.
+ */
+function mountOptions(start: Partial<{ indentWidth: number; lineWrap: boolean }> = {}) {
+	const open = ref(false);
+	const harness = mount(
+		{
+			setup() {
+				return () =>
+					h(
+						Popover,
+						{ open: open.value, 'onUpdate:open': (value: boolean) => (open.value = value) },
+						() => [
+							h(StatusBarComponent, {
+								line: 1,
+								column: 1,
+								path: null,
+								lineEnding: 'lf',
+								readOnly: false,
+								lineWrap: start.lineWrap ?? false,
+								indentWidth: start.indentWidth ?? 4,
+							}),
+							h(OptionsComponent, {
+								indentWidth: start.indentWidth ?? 4,
+								lineWrap: start.lineWrap ?? false,
+								saveOptions: { ...DEFAULT_SAVE_OPTIONS },
+							}),
+						]
+					);
+			},
+		},
+		{ attachTo: document.body }
+	);
+	track(harness);
+	const buttons = harness.findAll('button');
+	return {
+		harness,
+		open,
+		options: harness.findComponent(OptionsComponent),
+		goToLine: buttons[0]?.element as HTMLElement,
+		trigger: buttons[1]?.element as HTMLElement,
+	};
+}
+
+const optionsPanel = () => document.body.querySelector<HTMLElement>('[data-popover-content]') as HTMLElement;
+
 describe('las opciones', () => {
-	const props = { indentWidth: 4, lineWrap: false, saveOptions: { ...OPCIONES_POR_OMISION } };
+	test('el panel es el globo de la librería, teletransportado y con nombre', async () => {
+		const { harness, options, trigger } = mountOptions();
+		expect(options.findComponent(PopoverContent).exists()).toBe(true);
+
+		trigger.click();
+		await settle();
+
+		const panel = optionsPanel();
+		// Fuera de la columna del editor, cuyo `overflow` lo cortaría.
+		expect(harness.element.contains(panel)).toBe(false);
+		expect(panel.getAttribute('role')).toBe('dialog');
+		expect(panel.getAttribute('aria-label')).toBe('opciones.titulo');
+		expect(trigger.getAttribute('aria-controls')).toBe(panel.id);
+		// El ancho y el cuerpo de letra del panel propio: el formato no cambia.
+		expect(panel.classList).toContain('w-72');
+		expect(panel.classList).toContain('text-sm');
+		expect(panel.classList).toContain('p-3');
+	});
+
+	test('cuelga de la barra de estado: arriba, a la derecha, a 8 px', async () => {
+		const { harness, trigger } = mountOptions();
+		const anchor = harness.get('.pointer-events-none.h-0').element as HTMLElement;
+		// Una línea sin alto que no recibe clics, sobre el canto de la barra.
+		expect(anchor.classList).toContain('pointer-events-none');
+		expect(anchor.classList).toContain('absolute');
+
+		// happy-dom no maqueta: el ancla y el panel se miden a mano. Una ventana
+		// de 600 × 720 con la barra a 693 px y un panel de 288 × 300.
+		window.innerWidth = 600;
+		window.innerHeight = 720;
+		anchor.getBoundingClientRect = () =>
+			({ top: 693, bottom: 693, left: 0, right: 600, width: 600, height: 0 }) as DOMRect;
+		const panel = optionsPanel();
+		Object.defineProperty(panel, 'offsetWidth', { configurable: true, value: 288 });
+		Object.defineProperty(panel, 'scrollHeight', { configurable: true, value: 300 });
+
+		trigger.click();
+		await settle();
+
+		// Abajo, 8 px por arriba de la barra: 693 − 8 − 300.
+		expect(panel.style.top).toBe('385px');
+		// A la derecha, con el aire de 8 px de la ventana: 600 − 288 − 8. Es el
+		// lugar del panel propio (`right-2`), no el del botón que lo abre.
+		expect(panel.style.left).toBe('304px');
+	});
+
+	test('al abrir, el foco entra al primer control del panel', async () => {
+		const { trigger } = mountOptions();
+		trigger.focus();
+		trigger.click();
+		await settle();
+
+		const panel = optionsPanel();
+		expect(panel.hasAttribute('inert')).toBe(false);
+		expect(panel.contains(document.activeElement)).toBe(true);
+		expect(document.activeElement === panel).toBe(false);
+	});
+
+	test('Escape cierra, no sigue de largo y devuelve el foco al botón', async () => {
+		const { trigger, open } = mountOptions();
+		trigger.focus();
+		trigger.click();
+		await settle();
+		expect(open.value).toBe(true);
+
+		let reachedWindow = false;
+		const listener = () => {
+			reachedWindow = true;
+		};
+		window.addEventListener('keydown', listener);
+		const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+		(document.activeElement as HTMLElement).dispatchEvent(event);
+		window.removeEventListener('keydown', listener);
+		await settle();
+
+		expect(event.defaultPrevented).toBe(true);
+		expect(reachedWindow).toBe(false);
+		expect(open.value).toBe(false);
+		expect(document.activeElement === trigger).toBe(true);
+	});
+
+	test('el clic afuera cierra, y sin mover el foco al botón', async () => {
+		const { trigger, open } = mountOptions();
+		trigger.focus();
+		trigger.click();
+		await settle();
+
+		document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+		await settle();
+
+		expect(open.value).toBe(false);
+		expect(optionsPanel().hasAttribute('inert')).toBe(true);
+		expect(document.activeElement === trigger).toBe(false);
+	});
+
+	test('«Línea 1, columna 1» también es afuera', async () => {
+		// Por eso el ancla es una línea sin alto y no la barra: lo que está
+		// adentro del ancla no cierra el globo.
+		const { goToLine, trigger, open } = mountOptions();
+		trigger.click();
+		await settle();
+
+		goToLine.click();
+		await settle();
+		expect(open.value).toBe(false);
+	});
+
+	test('pero un clic adentro del panel no lo cierra, y el botón lo vuelve a cerrar', async () => {
+		const { trigger, open } = mountOptions();
+		trigger.click();
+		await settle();
+
+		optionsPanel().querySelector('h2')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+		optionsPanel().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+		await settle();
+		expect(open.value).toBe(true);
+
+		trigger.click();
+		await settle();
+		expect(open.value).toBe(false);
+	});
 
 	test('la sangría es un control segmentado con las mismas cuatro', async () => {
-		const options = track(mount(OptionsComponent, { props, attachTo: document.body }));
+		const { options, trigger } = mountOptions();
 		// Es genérico (`generic="T"`): sus tipos no le llegan a `findComponent`,
 		// que deja sus propiedades en `never`. Lo que ofrece se lee del DOM.
 		expect(options.findComponent(SegmentedControl as Component).exists()).toBe(true);
+		trigger.click();
+		await settle();
 
 		// Un grupo de radio, con su nombre y las mismas cuatro de antes.
-		const group = options.get('[role="radiogroup"]');
-		expect(group.attributes('aria-label')).toBe('opciones.indentacion');
-		const radios = group.findAll('[role="radio"]');
-		expect(radios.map((r) => r.text())).toEqual(['opciones.tabulador', '2', '4', '8']);
-		expect(radios.map((r) => r.attributes('aria-checked'))).toEqual(['false', 'false', 'true', 'false']);
-		await radios[1].trigger('click');
+		const group = optionsPanel().querySelector('[role="radiogroup"]') as HTMLElement;
+		expect(group.getAttribute('aria-label')).toBe('opciones.indentacion');
+		const radios = [...group.querySelectorAll<HTMLElement>('[role="radio"]')];
+		expect(radios.map((r) => r.textContent?.trim())).toEqual(['opciones.tabulador', '2', '4', '8']);
+		expect(radios.map((r) => r.getAttribute('aria-checked'))).toEqual(['false', 'false', 'true', 'false']);
+		radios[1].click();
+		await settle();
 		expect(options.emitted('indentWidth')).toEqual([[2]]);
 	});
 
 	test('las tres siguen siendo casillas, no interruptores', async () => {
 		// Cambiarlas por interruptores es cambiar la pantalla: la regla es que
 		// el formato se queda.
-		const options = track(mount(OptionsComponent, { props, attachTo: document.body }));
+		const { options } = mountOptions();
 		const boxes = options.findAllComponents(Checkbox);
 
 		expect(boxes.map((b) => b.props('label'))).toEqual([
@@ -287,45 +470,35 @@ describe('las opciones', () => {
 			'opciones.quitar_espacios',
 			'opciones.agregar_salto',
 		]);
-		expect(options.findAll('input[type="checkbox"]')).toHaveLength(3);
-		expect(options.find('[role="switch"]').exists()).toBe(false);
+		expect(optionsPanel().querySelectorAll('input[type="checkbox"]')).toHaveLength(3);
+		expect(optionsPanel().querySelector('[role="switch"]')).toBeNull();
 	});
 
 	test('cada casilla cambia lo suyo y nada más', async () => {
-		const options = track(mount(OptionsComponent, { props, attachTo: document.body }));
-		const inputs = options.findAll('input[type="checkbox"]');
+		const { options, trigger } = mountOptions();
+		trigger.click();
+		await settle();
+		const inputs = [...optionsPanel().querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
 
-		await inputs[0].setValue(true);
+		inputs[0].click();
+		await settle();
 		expect(options.emitted('toggleLineWrap')).toHaveLength(1);
 
-		await inputs[2].setValue(true);
-		expect(options.emitted('saveOptions')).toEqual([[{ ...OPCIONES_POR_OMISION, agregarSaltoFinal: true }]]);
+		inputs[2].click();
+		await settle();
+		expect(options.emitted('saveOptions')).toEqual([[{ ...DEFAULT_SAVE_OPTIONS, insertFinalNewline: true }]]);
 	});
 
-	test('Escape y el clic afuera cierran', async () => {
-		const options = track(mount(OptionsComponent, { props, attachTo: document.body }));
+	test('el panel ya no avisa que se cierra: lo cierra el globo', async () => {
+		const { options, trigger } = mountOptions();
+		trigger.click();
+		await settle();
+		(document.activeElement as HTMLElement).dispatchEvent(
+			new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+		);
+		await settle();
 
-		await options.trigger('keydown', { key: 'Escape' });
-		await options.trigger('click');
-		expect(options.emitted('close')).toHaveLength(2);
-	});
-
-	test('pero un clic adentro del panel no lo cierra', async () => {
-		const options = track(mount(OptionsComponent, { props, attachTo: document.body }));
-
-		await options.get('.shadow-surface-l').trigger('click');
-		await options.get('h2').trigger('click');
 		expect(options.emitted('close')).toBeUndefined();
-	});
-
-	test('y el panel no se sale de una ventana más angosta que él', async () => {
-		// Es el panel propio que espera al `Popover` de la 2.2.0: mide 18rem, y
-		// en una ventana de 240 px se cortaba del lado izquierdo.
-		const options = track(mount(OptionsComponent, { props, attachTo: document.body }));
-		const panel = options.get('.shadow-surface-l');
-
-		expect(panel.classes()).toContain('max-w-[calc(100%-1rem)]');
-		expect(panel.classes()).toContain('overflow-y-auto');
 	});
 });
 

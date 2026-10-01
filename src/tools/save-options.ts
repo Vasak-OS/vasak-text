@@ -12,14 +12,14 @@
  * ningún archivo, conviene poder probarlo sin escribir ningún archivo.
  */
 
-export interface OpcionesAlGuardar {
-	quitarEspaciosFinales: boolean;
-	agregarSaltoFinal: boolean;
+export interface SaveOptions {
+	trimTrailingWhitespace: boolean;
+	insertFinalNewline: boolean;
 }
 
-export const OPCIONES_POR_OMISION: OpcionesAlGuardar = {
-	quitarEspaciosFinales: false,
-	agregarSaltoFinal: false,
+export const DEFAULT_SAVE_OPTIONS: SaveOptions = {
+	trimTrailingWhitespace: false,
+	insertFinalNewline: false,
 };
 
 /**
@@ -29,23 +29,19 @@ export const OPCIONES_POR_OMISION: OpcionesAlGuardar = {
  * escribir el salto final. Son dos cosas porque el salto final no vive en el
  * texto: lo agrega Rust al reconstruir el archivo con su fin de línea.
  */
-export function preparar(
-	texto: string,
-	terminaConSalto: boolean,
-	opciones: OpcionesAlGuardar
-): { texto: string; terminaConSalto: boolean } {
-	let salida = texto;
-
-	if (opciones.quitarEspaciosFinales) {
-		salida = sinEspaciosFinales(salida);
-	}
+export function prepareForSave(
+	text: string,
+	endsWithNewline: boolean,
+	options: SaveOptions
+): { text: string; endsWithNewline: boolean } {
+	const output = options.trimTrailingWhitespace ? withoutTrailingWhitespace(text) : text;
 
 	return {
-		texto: salida,
+		text: output,
 		// Sólo se **agrega**: un archivo que no lo tenía lo gana, y uno que ya lo
 		// tenía lo conserva. Lo que esta opción no hace nunca es quitarlo, que
 		// sería el cambio destructivo del par.
-		terminaConSalto: opciones.agregarSaltoFinal ? true : terminaConSalto,
+		endsWithNewline: options.insertFinalNewline ? true : endsWithNewline,
 	};
 }
 
@@ -57,9 +53,9 @@ export function preparar(
  * funciona, pero `/\s+$/g` colapsaría las líneas vacías del final del archivo en
  * una sola. Partir y volver a unir no tiene esa trampa.
  */
-function sinEspaciosFinales(texto: string): string {
-	return texto
+function withoutTrailingWhitespace(text: string): string {
+	return text
 		.split('\n')
-		.map((linea) => linea.replace(/[ \t]+$/, ''))
+		.map((line) => line.replace(/[ \t]+$/, ''))
 		.join('\n');
 }

@@ -14,13 +14,22 @@
  * En una ventana angosta los elementos bajan de renglón (`flex-wrap`) en lugar
  * de encogerse: el botón deja partir su texto en cualquier letra, y encogido
  * hasta cero escribía «Línea 1, columna 1» de a una letra por renglón.
+ *
+ * El resumen de las preferencias es el disparador del globo de opciones
+ * (`PopoverTrigger`), y la barra es su ancla: el globo se abre por arriba de
+ * ella, pegado a la derecha, que es donde estaba el panel propio. El ancla no
+ * es la barra entera sino una línea sin alto sobre su canto de arriba: lo que
+ * está adentro del ancla no cuenta como «afuera», y con la barra entera un
+ * clic en «Línea 1, columna 1» con el globo abierto no lo cerraba. Las dos
+ * piezas inyectan el `Popover` que las envuelve en `App.vue`; sin él (en una
+ * prueba) usan uno suelto.
  */
 
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { ActionButton, Badge } from '@vasakgroup/vue-libvasak';
+import { ActionButton, Badge, PopoverAnchor, PopoverTrigger } from '@vasakgroup/vue-libvasak';
 import { computed } from 'vue';
 import type { FinDeLinea } from '@/tools/documento';
-import { interpolar } from '@/tools/interpolar';
+import { interpolate } from '@/tools/interpolate';
 import { lenguajeDe, NOMBRE_VISIBLE } from '@/tools/lenguajes';
 
 const props = defineProps<{
@@ -34,11 +43,11 @@ const props = defineProps<{
 	indentWidth: number;
 }>();
 
-const emit = defineEmits<{ options: []; goToLine: [] }>();
+const emit = defineEmits<{ goToLine: [] }>();
 
 const { t } = useI18n();
 
-const position = computed(() => interpolar(t('estado.posicion'), props.line, props.column));
+const position = computed(() => interpolate(t('estado.posicion'), props.line, props.column));
 
 /**
  * El nombre del lenguaje, o «Texto» si no se reconoce.
@@ -62,7 +71,7 @@ const summary = computed(() => {
 	const indent =
 		props.indentWidth === 0
 			? t('opciones.tabulador')
-			: interpolar(t('opciones.espacios'), props.indentWidth);
+			: interpolate(t('opciones.espacios'), props.indentWidth);
 
 	return props.lineWrap ? `${indent} · ${t('estado.ajuste_linea')}` : indent;
 });
@@ -70,8 +79,12 @@ const summary = computed(() => {
 
 <template>
   <div
-    class="flex min-w-0 shrink-0 flex-wrap items-center gap-x-3 border-t border-ui-line px-3 text-tx-muted text-xs"
+    class="relative flex min-w-0 shrink-0 flex-wrap items-center gap-x-3 border-t border-ui-line px-3 text-tx-muted text-xs"
   >
+    <!-- Absoluta, sin alto y vacía: no ocupa lugar en la fila, no recibe clics
+         y no tiene nada que leer. -->
+    <PopoverAnchor class="pointer-events-none absolute inset-x-0 top-0 h-0" />
+
     <!-- Clicable: es donde se mira la línea, así que es donde se espera poder
          pedir ir a otra. -->
     <ActionButton
@@ -87,14 +100,15 @@ const summary = computed(() => {
 
     <Badge v-if="readOnly" tone="warning" :label="t('estado.solo_lectura')" />
 
-    <ActionButton
-      variant="ghost"
-      size="sm"
-      class="max-w-full shrink-0"
-      :label="summary"
-      :title="t('opciones.titulo')"
-      @click="emit('options')"
-    />
+    <PopoverTrigger as-child>
+      <ActionButton
+        variant="ghost"
+        size="sm"
+        class="max-w-full shrink-0"
+        :label="summary"
+        :title="t('opciones.titulo')"
+      />
+    </PopoverTrigger>
 
     <!-- En mayúsculas y sin traducir: «LF» y «CRLF» son los nombres, no
          palabras. -->

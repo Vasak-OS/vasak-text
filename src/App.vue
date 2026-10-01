@@ -13,7 +13,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useConfigStore } from '@vasakgroup/plugin-config-manager';
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { ActionButton, TabBar, type TabEntry, ThemeIcon } from '@vasakgroup/vue-libvasak';
+import { ActionButton, Popover, TabBar, type TabEntry, ThemeIcon } from '@vasakgroup/vue-libvasak';
 import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue';
 import EditorComponent from '@/components/editor/EditorComponent.vue';
 import NoticeBarComponent from '@/components/editor/NoticeBarComponent.vue';
@@ -22,8 +22,8 @@ import StatusBarComponent from '@/components/editor/StatusBarComponent.vue';
 import UnsavedChangesComponent from '@/components/editor/UnsavedChangesComponent.vue';
 import WindowAppLayout from '@/layouts/WindowAppLayout.vue';
 import { useEditorStore } from '@/stores/editor';
-import { OPCIONES_POR_OMISION, type OpcionesAlGuardar, preparar } from '@/tools/al-guardar';
 import { rutasDeApertura } from '@/tools/documento';
+import { DEFAULT_SAVE_OPTIONS, prepareForSave, type SaveOptions } from '@/tools/save-options';
 
 /** El evento con el que una segunda invocación le pasa sus archivos a ésta. */
 const EVENTO_ABRIR = 'abrir-rutas';
@@ -42,7 +42,7 @@ const column = ref(1);
  */
 const lineWrap = ref(false);
 const indentWidth = ref(4);
-const saveOptions = ref<OpcionesAlGuardar>({ ...OPCIONES_POR_OMISION });
+const saveOptions = ref<SaveOptions>({ ...DEFAULT_SAVE_OPTIONS });
 const optionsOpen = ref(false);
 
 /** Lo que hay que hacer en cuanto se resuelva qué pasa con lo no guardado. */
@@ -141,14 +141,14 @@ const titulosSucios = computed(() => {
  * repetirlo daría tres caminos que hay que mantener iguales, y el que se olvide
  * escribiría el archivo con otras reglas sin que nada avise.
  */
-function paraEscribir(id: string): { texto: string; terminaConSalto: boolean } | null {
+function prepareTab(id: string): { text: string; endsWithNewline: boolean } | null {
 	if (vista.value === null) return null;
 
 	const texto = vista.value.textoDe(id);
 	if (texto === null) return null;
 
 	const pestana = editor.lista.find((p) => p.id === id);
-	return preparar(texto, pestana?.datos.terminaConSalto ?? true, saveOptions.value);
+	return prepareForSave(texto, pestana?.datos.terminaConSalto ?? true, saveOptions.value);
 }
 
 /**
@@ -164,20 +164,20 @@ async function guardar(id?: string): Promise<boolean> {
 	const objetivo = id ?? editor.activa?.id;
 	if (objetivo === undefined) return false;
 
-	const listo = paraEscribir(objetivo);
-	if (listo === null) return false;
+	const ready = prepareTab(objetivo);
+	if (ready === null) return false;
 
-	return await editor.guardar(objetivo, listo.texto, listo.terminaConSalto);
+	return await editor.guardar(objetivo, ready.text, ready.endsWithNewline);
 }
 
 async function guardarComo(id?: string): Promise<boolean> {
 	const objetivo = id ?? editor.activa?.id;
 	if (objetivo === undefined) return false;
 
-	const listo = paraEscribir(objetivo);
-	if (listo === null) return false;
+	const ready = prepareTab(objetivo);
+	if (ready === null) return false;
 
-	return await editor.guardarComo(objetivo, listo.texto, listo.terminaConSalto);
+	return await editor.guardarComo(objetivo, ready.text, ready.endsWithNewline);
 }
 
 /**
@@ -191,9 +191,9 @@ async function guardarTodas(): Promise<boolean> {
 	if (vista.value === null) return false;
 
 	for (const pestana of editor.lista.filter((p) => p.sucio)) {
-		const listo = paraEscribir(pestana.id);
-		if (listo === null) continue;
-		if (!(await editor.guardar(pestana.id, listo.texto, listo.terminaConSalto))) {
+		const ready = prepareTab(pestana.id);
+		if (ready === null) continue;
+		if (!(await editor.guardar(pestana.id, ready.text, ready.endsWithNewline))) {
 			return false;
 		}
 	}
@@ -390,28 +390,30 @@ onUnmounted(() => {
         @save-as="guardarComo"
       />
 
-      <StatusBarComponent
-        :line="line"
-        :column="column"
-        :path="datosActivos?.ruta ?? null"
-        :line-ending="datosActivos?.finDeLinea ?? 'lf'"
-        :read-only="datosActivos?.soloLectura ?? false"
-        :line-wrap="lineWrap"
-        :indent-width="indentWidth"
-        @options="optionsOpen = true"
-        @go-to-line="vista?.irALinea()"
-      />
+      <!-- El globo de opciones: la barra de estado tiene el disparador y el
+           ancla, y `OptionsComponent` es el contenido. `Popover` no dibuja
+           ningún elemento, así que la columna queda como estaba. -->
+      <Popover v-model:open="optionsOpen">
+        <StatusBarComponent
+          :line="line"
+          :column="column"
+          :path="datosActivos?.ruta ?? null"
+          :line-ending="datosActivos?.finDeLinea ?? 'lf'"
+          :read-only="datosActivos?.soloLectura ?? false"
+          :line-wrap="lineWrap"
+          :indent-width="indentWidth"
+          @go-to-line="vista?.irALinea()"
+        />
 
-      <OptionsComponent
-        v-if="optionsOpen"
-        :indent-width="indentWidth"
-        :line-wrap="lineWrap"
-        :save-options="saveOptions"
-        @indent-width="(width) => { indentWidth = width; }"
-        @toggle-line-wrap="lineWrap = !lineWrap"
-        @save-options="(options) => { saveOptions = options; }"
-        @close="optionsOpen = false"
-      />
+        <OptionsComponent
+          :indent-width="indentWidth"
+          :line-wrap="lineWrap"
+          :save-options="saveOptions"
+          @indent-width="(width) => { indentWidth = width; }"
+          @toggle-line-wrap="lineWrap = !lineWrap"
+          @save-options="(options) => { saveOptions = options; }"
+        />
+      </Popover>
 
       <UnsavedChangesComponent
         v-if="pendiente !== null"

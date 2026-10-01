@@ -13,7 +13,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { ActionButton, TabBar, WindowFrame } from '@vasakgroup/vue-libvasak';
+import { ActionButton, Popover, TabBar, WindowFrame } from '@vasakgroup/vue-libvasak';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import App from '@/App.vue';
@@ -90,6 +90,29 @@ describe('las acciones de la barra', () => {
 			'acciones.abrir',
 			'acciones.guardar',
 		]);
+	});
+});
+
+describe('el globo de opciones, armado en la ventana', () => {
+	test('el resumen de la barra de estado lo abre y lo cierra', async () => {
+		// Lo que las pruebas de `library-adoption` arman a mano está acá de
+		// verdad: el `Popover` envuelve la barra y el panel, atado a la ventana.
+		const { view: frame } = await openEditorWith(1);
+		const popover = frame.findComponent(Popover);
+		expect(popover.exists()).toBe(true);
+		expect(popover.props('open')).toBe(false);
+
+		const trigger = frame
+			.findAllComponents(ActionButton)
+			.find((b) => b.props('title') === 'opciones.titulo');
+		expect(trigger?.attributes('aria-haspopup')).toBe('dialog');
+
+		await trigger?.trigger('click');
+		expect(popover.props('open')).toBe(true);
+		expect(trigger?.attributes('aria-expanded')).toBe('true');
+
+		await trigger?.trigger('click');
+		expect(popover.props('open')).toBe(false);
 	});
 });
 

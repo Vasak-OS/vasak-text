@@ -16,10 +16,10 @@
  * «Rock {0} Roll», y una con `$'` perdía el texto que venía después. Con una
  * función el valor entra literal.
  */
-export function interpolar(plantilla: string, ...valores: unknown[]): string {
-	return valores.reduce<string>(
-		(texto, valor, indice) => texto.replaceAll(`{${indice}}`, () => String(valor)),
-		plantilla
+export function interpolate(template: string, ...values: unknown[]): string {
+	return values.reduce<string>(
+		(text, value, index) => text.replaceAll(`{${index}}`, () => String(value)),
+		template
 	);
 }
 
@@ -29,6 +29,6 @@ export function interpolar(plantilla: string, ...valores: unknown[]): string {
  * El plugin no tiene plurales, así que van dos claves con sufijo `One`/`Other`
  * y la vista elige. Sin esto se termina mostrando «1 pistas».
  */
-export function claveSegunCantidad(base: string, cantidad: number): string {
-	return cantidad === 1 ? `${base}One` : `${base}Other`;
+export function pluralKey(base: string, count: number): string {
+	return count === 1 ? `${base}One` : `${base}Other`;
 }
