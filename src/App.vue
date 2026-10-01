@@ -13,13 +13,13 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useConfigStore } from '@vasakgroup/plugin-config-manager';
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { type ElementoDePestana, TabBar, ThemeIcon } from '@vasakgroup/vue-libvasak';
+import { ActionButton, TabBar, type TabEntry, ThemeIcon } from '@vasakgroup/vue-libvasak';
 import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue';
-import AvisoComponent from '@/components/editor/AvisoComponent.vue';
-import BarraEstadoComponent from '@/components/editor/BarraEstadoComponent.vue';
 import EditorComponent from '@/components/editor/EditorComponent.vue';
-import OpcionesComponent from '@/components/editor/OpcionesComponent.vue';
-import SinGuardarComponent from '@/components/editor/SinGuardarComponent.vue';
+import NoticeBarComponent from '@/components/editor/NoticeBarComponent.vue';
+import OptionsComponent from '@/components/editor/OptionsComponent.vue';
+import StatusBarComponent from '@/components/editor/StatusBarComponent.vue';
+import UnsavedChangesComponent from '@/components/editor/UnsavedChangesComponent.vue';
 import WindowAppLayout from '@/layouts/WindowAppLayout.vue';
 import { useEditorStore } from '@/stores/editor';
 import { OPCIONES_POR_OMISION, type OpcionesAlGuardar, preparar } from '@/tools/al-guardar';
@@ -32,18 +32,18 @@ const editor = useEditorStore();
 const { t } = useI18n();
 const vista = useTemplateRef<InstanceType<typeof EditorComponent>>('vista');
 
-const linea = ref(1);
-const columna = ref(1);
+const line = ref(1);
+const column = ref(1);
 /**
  * El ajuste de línea y la indentación, para toda la ventana y no por archivo.
  *
  * Es una preferencia de cómo se quiere leer, no una propiedad del archivo:
  * tenerla por pestaña obligaría a volver a elegirla en cada una.
  */
-const ajusteLinea = ref(false);
-const indentacion = ref(4);
-const alGuardar = ref<OpcionesAlGuardar>({ ...OPCIONES_POR_OMISION });
-const opcionesAbiertas = ref(false);
+const lineWrap = ref(false);
+const indentWidth = ref(4);
+const saveOptions = ref<OpcionesAlGuardar>({ ...OPCIONES_POR_OMISION });
+const optionsOpen = ref(false);
 
 /** Lo que hay que hacer en cuanto se resuelva qué pasa con lo no guardado. */
 type Pendiente = { accion: 'cerrar-pestana'; id: string } | { accion: 'cerrar-ventana' };
@@ -60,7 +60,7 @@ const datosActivos = computed(() => editor.activa?.datos ?? null);
  * `closable` siempre: a diferencia de la terminal, cerrar el último archivo
  * abierto es algo que se pide de verdad y deja una pestaña vacía en su lugar.
  */
-const pestanas = computed<ElementoDePestana[]>(() =>
+const pestanas = computed<TabEntry[]>(() =>
 	editor.lista.map((pestana, indice) => ({
 		id: pestana.id,
 		label: editor.titulos[indice] || t('pestanas.nueva_titulo'),
@@ -86,7 +86,7 @@ const pestanas = computed<ElementoDePestana[]>(() =>
  * ser tanto el origen como el destino. Así que hay dos candidatos y se aplica el
  * que reconstruye la lista emitida.
  */
-function reordenar(nuevas: ElementoDePestana[]) {
+function reordenar(nuevas: TabEntry[]) {
 	const antes = editor.lista.map((pestana) => pestana.id);
 	const despues = nuevas.map((pestana) => pestana.id);
 	const primera = antes.findIndex((id, indice) => id !== despues[indice]);
@@ -148,7 +148,7 @@ function paraEscribir(id: string): { texto: string; terminaConSalto: boolean } |
 	if (texto === null) return null;
 
 	const pestana = editor.lista.find((p) => p.id === id);
-	return preparar(texto, pestana?.datos.terminaConSalto ?? true, alGuardar.value);
+	return preparar(texto, pestana?.datos.terminaConSalto ?? true, saveOptions.value);
 }
 
 /**
@@ -327,33 +327,36 @@ onUnmounted(() => {
 
     <!-- Las acciones de la ventana, junto a los botones de la ventana. -->
     <template #acciones>
-      <button
-        type="button"
-        class="rounded-corner border border-ui-border bg-ui-bg/80 p-1 hover:bg-ui-surface"
+      <!-- Fantasmas y chicos: al lado de los botones de la ventana, un borde
+           propio en cada uno los hacía competir con ellos. El nombre accesible
+           y el globo salen de `iconAlt` y `title`. -->
+      <ActionButton
+        variant="ghost"
+        size="sm"
+        label=""
+        icon="edit-find"
+        :icon-alt="t('acciones.buscar')"
         :title="t('acciones.buscar')"
-        :aria-label="t('acciones.buscar')"
         @click="vista?.buscar()"
-      >
-        <ThemeIcon name="edit-find" type="symbol" :size="16" />
-      </button>
-      <button
-        type="button"
-        class="rounded-corner border border-ui-border bg-ui-bg/80 p-1 hover:bg-ui-surface"
+      />
+      <ActionButton
+        variant="ghost"
+        size="sm"
+        label=""
+        icon="document-open"
+        :icon-alt="t('acciones.abrir')"
         :title="t('acciones.abrir')"
-        :aria-label="t('acciones.abrir')"
         @click="editor.abrirConDialogo()"
-      >
-        <ThemeIcon name="document-open" type="symbol" :size="16" />
-      </button>
-      <button
-        type="button"
-        class="rounded-corner border border-ui-border bg-ui-bg/80 p-1 hover:bg-ui-surface"
+      />
+      <ActionButton
+        variant="ghost"
+        size="sm"
+        label=""
+        icon="document-save"
+        :icon-alt="t('acciones.guardar')"
         :title="t('acciones.guardar')"
-        :aria-label="t('acciones.guardar')"
         @click="guardar()"
-      >
-        <ThemeIcon name="document-save" type="symbol" :size="16" />
-      </button>
+      />
     </template>
 
     <!-- `relative` para que el diálogo modal se apoye en la ventana y no en el
@@ -365,11 +368,11 @@ onUnmounted(() => {
         :guardado="datosActivos?.guardado ?? ''"
         :generacion="datosActivos?.generacion ?? 0"
         :ruta="datosActivos?.ruta ?? null"
-        :ajuste-linea="ajusteLinea"
+        :ajuste-linea="lineWrap"
         :solo-lectura="datosActivos?.soloLectura ?? false"
-        :indentacion="indentacion"
+        :indentacion="indentWidth"
         @sucio="editor.marcarSucio"
-        @posicion="(l, c) => { linea = l; columna = c; }"
+        @posicion="(l, c) => { line = l; column = c; }"
         @guardar="guardar()"
         @guardar-como="guardarComo()"
         @abrir="editor.abrirConDialogo()"
@@ -379,43 +382,43 @@ onUnmounted(() => {
         @anterior="editor.anterior"
       />
 
-      <AvisoComponent
+      <NoticeBarComponent
         v-if="editor.aviso !== null"
-        :aviso="editor.aviso"
-        @cerrar="editor.limpiarAviso"
-        @recargar="editor.recargar"
-        @guardar-como="guardarComo"
+        :notice="editor.aviso"
+        @close="editor.limpiarAviso"
+        @reload="editor.recargar"
+        @save-as="guardarComo"
       />
 
-      <BarraEstadoComponent
-        :linea="linea"
-        :columna="columna"
-        :ruta="datosActivos?.ruta ?? null"
-        :fin-de-linea="datosActivos?.finDeLinea ?? 'lf'"
-        :solo-lectura="datosActivos?.soloLectura ?? false"
-        :ajuste-linea="ajusteLinea"
-        :indentacion="indentacion"
-        @opciones="opcionesAbiertas = true"
-        @ir-a-linea="vista?.irALinea()"
+      <StatusBarComponent
+        :line="line"
+        :column="column"
+        :path="datosActivos?.ruta ?? null"
+        :line-ending="datosActivos?.finDeLinea ?? 'lf'"
+        :read-only="datosActivos?.soloLectura ?? false"
+        :line-wrap="lineWrap"
+        :indent-width="indentWidth"
+        @options="optionsOpen = true"
+        @go-to-line="vista?.irALinea()"
       />
 
-      <OpcionesComponent
-        v-if="opcionesAbiertas"
-        :indentacion="indentacion"
-        :ajuste-linea="ajusteLinea"
-        :al-guardar="alGuardar"
-        @indentacion="(valor) => { indentacion = valor; }"
-        @alternar-ajuste="ajusteLinea = !ajusteLinea"
-        @al-guardar="(valor) => { alGuardar = valor; }"
-        @cerrar="opcionesAbiertas = false"
+      <OptionsComponent
+        v-if="optionsOpen"
+        :indent-width="indentWidth"
+        :line-wrap="lineWrap"
+        :save-options="saveOptions"
+        @indent-width="(width) => { indentWidth = width; }"
+        @toggle-line-wrap="lineWrap = !lineWrap"
+        @save-options="(options) => { saveOptions = options; }"
+        @close="optionsOpen = false"
       />
 
-      <SinGuardarComponent
+      <UnsavedChangesComponent
         v-if="pendiente !== null"
-        :titulos="titulosSucios"
-        @guardar="resolverPendiente(true)"
-        @descartar="resolverPendiente(false)"
-        @cancelar="pendiente = null"
+        :titles="titulosSucios"
+        @save="resolverPendiente(true)"
+        @discard="resolverPendiente(false)"
+        @cancel="pendiente = null"
       />
     </div>
   </WindowAppLayout>
