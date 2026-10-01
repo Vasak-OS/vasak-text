@@ -15,12 +15,18 @@
  * de reemplazo: una canción llamada «Rock $& Roll» se mostraba como
  * «Rock {0} Roll», y una con `$'` perdía el texto que venía después. Con una
  * función el valor entra literal.
+ *
+ * **Y de una sola pasada sobre la plantilla.** Reemplazando marcador por
+ * marcador, el segundo reemplazo miraba también lo que había metido el
+ * primero: un archivo llamado `informe{1}.txt` en `{0}: {1}` salía
+ * «informeerror.txt: error». Ahora sólo se reemplazan los marcadores que
+ * estaban en la plantilla.
  */
 export function interpolate(template: string, ...values: unknown[]): string {
-	return values.reduce<string>(
-		(text, value, index) => text.replaceAll(`{${index}}`, () => String(value)),
-		template
-	);
+	return template.replace(/\{(\d+)\}/g, (marker, index: string) => {
+		const position = Number(index);
+		return position < values.length ? String(values[position]) : marker;
+	});
 }
 
 /**

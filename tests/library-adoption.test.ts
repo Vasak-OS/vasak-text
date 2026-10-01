@@ -346,22 +346,34 @@ describe('las opciones', () => {
 
 		// happy-dom no maqueta: el ancla y el panel se miden a mano. Una ventana
 		// de 600 × 720 con la barra a 693 px y un panel de 288 × 300.
-		window.innerWidth = 600;
-		window.innerHeight = 720;
-		anchor.getBoundingClientRect = () =>
-			({ top: 693, bottom: 693, left: 0, right: 600, width: 600, height: 0 }) as DOMRect;
+		// Lo de la ventana se devuelve al final, pase o falle: las pruebas que
+		// siguen comparten el mismo `window`.
+		const { innerWidth, innerHeight } = window;
 		const panel = optionsPanel();
-		Object.defineProperty(panel, 'offsetWidth', { configurable: true, value: 288 });
-		Object.defineProperty(panel, 'scrollHeight', { configurable: true, value: 300 });
+		try {
+			window.innerWidth = 600;
+			window.innerHeight = 720;
+			anchor.getBoundingClientRect = () =>
+				({ top: 693, bottom: 693, left: 0, right: 600, width: 600, height: 0 }) as DOMRect;
+			Object.defineProperty(panel, 'offsetWidth', { configurable: true, value: 288 });
+			Object.defineProperty(panel, 'scrollHeight', { configurable: true, value: 300 });
 
-		trigger.click();
-		await settle();
+			trigger.click();
+			await settle();
 
-		// Abajo, 8 px por arriba de la barra: 693 − 8 − 300.
-		expect(panel.style.top).toBe('385px');
-		// A la derecha, con el aire de 8 px de la ventana: 600 − 288 − 8. Es el
-		// lugar del panel propio (`right-2`), no el del botón que lo abre.
-		expect(panel.style.left).toBe('304px');
+			// Abajo, 8 px por arriba de la barra: 693 − 8 − 300.
+			expect(panel.style.top).toBe('385px');
+			// A la derecha, con el aire de 8 px de la ventana: 600 − 288 − 8. Es el
+			// lugar del panel propio (`right-2`), no el del botón que lo abre.
+			expect(panel.style.left).toBe('304px');
+		} finally {
+			window.innerWidth = innerWidth;
+			window.innerHeight = innerHeight;
+			// Los de instancia tapan los del prototipo: borrarlos los destapa.
+			Reflect.deleteProperty(anchor, 'getBoundingClientRect');
+			Reflect.deleteProperty(panel, 'offsetWidth');
+			Reflect.deleteProperty(panel, 'scrollHeight');
+		}
 	});
 
 	test('al abrir, el foco entra al primer control del panel', async () => {

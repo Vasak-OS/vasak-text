@@ -27,6 +27,12 @@ describe('interpolate', () => {
 		expect(interpolate('{0} y {0}', 'uno')).toBe('uno y uno');
 	});
 
+	test('un valor con un marcador adentro no se vuelve a reemplazar', () => {
+		// Un nombre de archivo con llaves es un nombre, no una plantilla.
+		expect(interpolate('{0}: {1}', 'informe{1}.txt', 'error')).toBe('informe{1}.txt: error');
+		expect(interpolate('{0} y {1}', '{0}', 'dos')).toBe('{0} y dos');
+	});
+
 	test('un marcador sin valor queda como está', () => {
 		// Mejor que se vea el marcador que un «undefined» en la interfaz.
 		expect(interpolate('{0} y {1}', 'uno')).toBe('uno y {1}');
