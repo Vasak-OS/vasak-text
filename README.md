@@ -1,167 +1,370 @@
-# vasak-text — el editor de texto de VasakOS
+# Vasak text
 
-Abre un archivo de configuración, un `README`, un log, un `.json` que alguien
-quiere mirar. **No es un IDE**: sin servidor de lenguaje, sin depurador, sin
-árbol de proyecto, sin control de versiones, sin extensiones y sin terminal
-integrada. Eso está escrito a propósito, porque es lo que lo mantiene
-terminable.
-
-Existe porque el escritorio no tenía ninguno: lo único que enviábamos era `nano`,
-así que «abrir» sobre un `.txt` desde el gestor de archivos no encontraba nada
-—su `open_with_default` resuelve por tipo MIME— y no pasaba nada.
-
-Armado sobre [`vapp`](https://github.com/Vasak-OS/vapp), la plantilla del
-escritorio: Tauri 2 + Vue 3 + TypeScript + Tailwind 4. Lo que la plantilla ya
-resuelve —idioma de la sesión, CSP, clic derecho, iconos, tema— está explicado
-en su README y no se repite acá.
+Editor de Textos para VasakOS
 
 ---
 
-## Las cuatro decisiones que definen esta aplicación
+## Tecnología
 
-### 1. No cambiar lo que no se pidió
+[![Rust](https://img.shields.io/badge/Rust-1.82%2B-orange?style=flat&logo=rust)](https://www.rust-lang.org/) [![Tauri](https://img.shields.io/badge/Tauri-2.0-24283b?style=flat&logo=tauri)](https://tauri.app/) [![Vue](https://img.shields.io/badge/Vue-3.5-42b883?style=flat&logo=vue.js)](https://vuejs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 
-Un editor que reformatea al guardar es peor que no tener editor. Alguien abre un
-`.conf` para cambiar una línea, guarda, y el `git diff` muestra el archivo
-entero porque se normalizaron los finales de línea. Eso no se nota hasta que ya
-pasó.
+## Estado
 
-`src-tauri/src/documento.rs` recuerda el archivo **como estaba** —su fin de
-línea, si terminaba con salto— y lo reconstruye igual al guardar. Adentro el
-texto siempre usa `\n`; la conversión ocurre en los bordes y hay un test que la
-comprueba de ida y vuelta para cada caso, incluido el archivo vacío frente al de
-una línea vacía, que son archivos distintos.
-
-Un archivo que no es UTF-8 válido **no se abre**: se avisa. La alternativa
-—leerlo con reemplazo de caracteres inválidos— haría que guardar escribiera
-rombos `U+FFFD` donde había bytes con información.
-
-### 2. Guardado atómico, y no pisar lo que cambió en disco
-
-Se escribe a un temporal en el mismo directorio y se renombra. `fs::write`
-trunca el archivo **antes** de terminar de escribirlo: una interrupción a mitad
-de camino lo deja vacío o partido. En un archivo de ajustes eso ya es malo; acá
-es el documento de alguien.
-
-Y si el archivo cambió en disco desde que se abrió, no se sobrescribe: se avisa
-y se ofrece recargar o guardar en otro lado. Alguien pudo haberlo editado con
-otro programa mientras estaba abierto acá.
-
-### 3. Los archivos los lee y escribe Rust, no el WebView
-
-No está `tauri-plugin-fs`. Ese plugin necesita un `scope`, y el `scope` que hace
-falta para un editor de texto es «todo el home»: cualquier cosa que llegue a
-ejecutarse en el WebView heredaría ese permiso.
-
-Lo que el WebView puede hacer es exactamente leer un archivo que nombra,
-escribir un archivo que nombra y preguntar si existe —`src-tauri/src/comandos.rs`—
-más el selector del sistema, que corre del lado de Rust y devuelve una ruta, no
-permisos.
-
-### 4. Las pestañas, genéricas
-
-El pedido original era reutilizar el sistema de la terminal. Al ir a buscarlo
-apareció que **ya está duplicado** entre la terminal y el gestor de archivos
-—`TabDraggableComponent` es idéntico en las dos— y que su tipo `Tab` tiene
-cuatro de sus ocho campos que no son de la terminal, porque se copió del gestor
-y le crecieron los propios encima.
-
-Copiarlo una tercera vez dejaba el problema tres veces más grande. Así que acá el
-modelo no sabe qué hay en una pestaña: `id`, `titulo`, `sucio` y un `datos`
-opaco que cada aplicación define (`src/tools/pestanas.ts`), y un componente de
-fila que sólo recibe títulos y avisa lo que la mano hizo
-(`src/components/tabs/`).
-
-**Los dos están escritos para mudarse a un paquete compartido**
-—`@vasakgroup/vue-tabs`— con la terminal y el gestor como los siguientes
-consumidores. Eso todavía no se hizo: lo que se hizo fue no agregar una tercera
-copia.
+[![CI](https://github.com/Vasak-OS/vasak-text/actions/workflows/ci.yml/badge.svg)](https://github.com/Vasak-OS/vasak-text/actions/workflows/ci.yml)
+[![Versión](https://img.shields.io/github/v/release/Vasak-OS/vasak-text?style=flat&label=Versi%C3%B3n)](https://github.com/Vasak-OS/vasak-text/releases)
+[![Licencia](https://img.shields.io/github/license/Vasak-OS/vasak-text?style=flat)](LICENSE)
+[![Cobertura](https://sonarcloud.io/api/project_badges/measure?project=Vasak-OS_vasak-text&metric=coverage&style=flat)](https://sonarcloud.io/summary/new_code?id=Vasak-OS_vasak-text)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=Vasak-OS_vasak-text&metric=alert_status&style=flat)](https://sonarcloud.io/summary/new_code?id=Vasak-OS_vasak-text)
+[![Tamaño repo](https://img.shields.io/github/repo-size/Vasak-OS/vasak-text?style=flat)](https://github.com/Vasak-OS/vasak-text)
 
 ---
 
-## El editor
+## Descripción
 
-**CodeMirror 6**, no Monaco. Monaco pesa varios megabytes y arrastra su propio
-modelo de edición; acá el WebView es WebKitGTK y la aplicación que edita texto no
-puede ser la que más memoria consume del escritorio.
+Editor de Textos para VasakOS
 
-**Un estado por pestaña.** Lo fácil sería reemplazar el contenido de la vista al
-cambiar de pestaña, y funciona hasta que alguien vuelve a la anterior y aprieta
-deshacer: el historial es parte del estado, así que un estado compartido
-significa que el deshacer de un archivo deshace en el otro.
+**Para el usuario:** Editor de Textos para VasakOS
 
-**Los lenguajes se cargan por demanda.** Cada uno es su propio paquete con su
-propio analizador; abrir un `.txt` no tiene por qué pagar el de HTML. Están los
-que alguien abre de verdad en este sistema —Markdown, JSON, TOML, INI, shell,
-Rust, TypeScript/JavaScript, Vue, Python, CSS, HTML, XML, diff— y no «todos».
-Agregar uno es una línea en cada mapa de `src/tools/lenguajes.ts`; `PKGBUILD`
-está ahí por nombre completo, porque no tiene extensión y es el archivo que más
-se edita en este proyecto.
-
-**La fuente y los colores salen del escritorio.** La monoespaciada es
-`vasak.conf` → `fonts.terminal` por el gestor de configuración, y el resaltado
-usa la paleta de la terminal. El editor se ve como la terminal **por
-construcción** y no por coincidencia, y el modo oscuro sale gratis porque no hay
-ningún color escrito en `src/tools/tema.ts`.
-
-### Atajos
-
-| | |
-|---|---|
-| `Ctrl+S` / `Ctrl+Shift+S` | guardar / guardar como |
-| `Ctrl+O` | abrir |
-| `Ctrl+T`, `Ctrl+N` | pestaña nueva |
-| `Ctrl+W` | cerrar pestaña |
-| `Ctrl+Alt+←` / `Ctrl+Alt+→` | pestaña anterior / siguiente |
-| `Ctrl+F`, `Ctrl+G` | buscar y reemplazar, ir a línea |
-| `Ctrl+Z` / `Ctrl+Shift+Z` | deshacer / rehacer |
-
-Van declarados **dentro** del mapa de teclas de CodeMirror y con la precedencia
-más alta: mientras el foco está en el editor, CodeMirror ve las teclas primero,
-así que un escucha en la ventana no recibiría `Ctrl+S` nunca. No es `Ctrl+Tab`
-para cambiar de pestaña porque el compositor y el motor se lo quedan antes.
+**Integración VasakOS:** Integra con el ecosistema VasakOS vía D-Bus y configuración compartida.
 
 ---
 
-## Integración con el escritorio
+## Arquitectura (diagramas)
 
-El `.desktop` sale de `src-tauri/vasak-text.desktop.hbs` y lleva `MimeType` y
-`Exec=… %F`. Sin lo primero el gestor de archivos no lo encuentra; sin lo segundo
-el escritorio lo lanza sin decirle qué archivo y se abre una ventana vacía. El
-paquete corre `update-desktop-database`, que es lo que hace que la asociación
-exista.
+> Copia y pega la plantilla que necesites, descomenta y adapta.
 
-**Una sola instancia**: `vasak-text notas.md` con la ventana ya abierta entra
-como pestaña nueva y trae la ventana al frente, en lugar de levantar un segundo
-WebKit. Traerla al frente es un mensaje de D-Bus al escritorio porque en Wayland
-un cliente no puede robarse el foco.
+### Flujo de datos
+
+```mermaid
+<!--
+graph TD
+    A[Entrada: Teclado / Ratón / D-Bus / Sistema] --> B[Procesamiento: Core Rust + Tauri Commands]
+    B --> C[Salida: UI actualizada / Acciones del sistema]
+    style A fill:#e1f5fe
+    style C fill:#e8f5e9
+-->
+```
+
+### Componentes internos
+
+```mermaid
+<!--
+flowchart LR
+    subgraph App[Vasak text]
+        UI[Frontend Vue 3 + vue-libvasak]
+        Core[Core Rust: lógica principal]
+        IPC[Tauri Commands / Eventos]
+        System[Systemd / D-Bus / PipeWire / Wayland]
+    end
+    UI --> IPC
+    IPC --> Core
+    Core --> DBus[(D-Bus / zbus)]
+    Core --> System
+    style UI fill:#f3e5f5
+    style Core fill:#e3f2fd
+    style DBus fill:#fff3e0
+    style System fill:#fce4ec
+-->
+```
+
+### Integración en el sistema VasakOS
+
+```mermaid
+<!--
+C4Context
+    title Vasak text en VasakOS
+    Person(usuario, "Usuario", "Persona que usa el sistema")
+    System_Boundary(c1, "VasakOS") {
+        System(app, "Vasak text", "Editor de Textos para VasakOS")
+        System_Ext(settings, "vasak-settings", "Configuración central")
+        System_Ext(keyring, "vasak-keyring", "Secrets y claves")
+        System_Ext(accounts, "vasak-accounts", "Cuentas e identidad")
+        System_Ext(permissions, "vasak-permissions", "Permisos y portales")
+    }
+    System_Ext(systemd, "systemd", "Gestión de servicios")
+    System_Ext(dbus, "D-Bus", "Bus de mensajes del sistema")
+    System_Ext(wayland, "Wayland / Wayfire", "Compositor")
+    System_Ext(pipewire, "PipeWire", "Multimedia")
+    Rel(usuario, app, "Usa")
+    Rel(app, settings, "Lee/escribe config")
+    Rel(app, keyring, "Guarda/lee secrets")
+    Rel(app, accounts, "Identidad de cuenta")
+    Rel(app, permissions, "Solicita permisos")
+    Rel(app, systemd, "Activación / sockets")
+    Rel(app, dbus, "Expone / consume interfaces")
+    Rel(app, wayland, "Superficies / protocolos")
+    Rel(app, pipewire, "Streams de audio/video")
+-->
+```
+
+---
+
+## Instalación
+
+### Arch Linux (repo oficial)
+
+```bash
+pacman -S vasak-vasak-text
+```
+
+### Debian / Ubuntu (.deb)
+
+```bash
+wget https://github.com/Vasak-OS/vasak-text/releases/download/v{{VERSION}}/vasak-vasak-text_{{VERSION}}_amd64.deb
+sudo apt install ./vasak-vasak-text_{{VERSION}}_amd64.deb
+```
+
+### Desde fuente
+
+```bash
+git clone https://github.com/Vasak-OS/vasak-text.git
+cd vasak-text
+
+# Desarrollo (recarga en caliente frontend + backend)
+bun run dev
+
+# Build producción
+bun run build
+
+# Solo frontend
+bun run build:frontend
+
+# Solo backend Rust
+cargo build --release --locked
+```
+
+### Flatpak / AppImage
+
+> *Placeholder: añadir cuando exista paquete Flatpak o AppImage oficial.*
+
+---
+
+## Uso rápido
+
+```bash
+# Se lanza automáticamente (systemd --user) o manualmente:
+vasak-text
+```
+
+### Atajos / flags principales
+
+| Acción | Comando / Tecla |
+|--------|-----------------|
+| Acción principal | `vasak-text` |
+| Configuración | `vasak-text --config` |
+| Ayuda | `vasak-text --help` |
+
+> **Captura:** `assets/demo.gif` *(placeholder — sustituir por GIF real)*
+
+---
+
+## Configuración
+
+### Archivo de configuración
+
+```
+~/.config/vasak/vasak-text.toml
+```
+
+### Variables de entorno
+
+| Variable | Descripción | Por defecto |
+|----------|-------------|-------------|
+| `VASAK_DEBUG` | Activa logs de depuración en consola | `false` |
+| `VASAK_PROFILE` | Perfil de rendimiento: `balanced`, `performance`, `power-save` | `balanced` |
+
+### Integración con `tauri-plugin-config-manager`
+
+- Esquemas de color: respeta `--ui-primary`, `--ui-surface`, `--ui-focus`, `--ui-on-surface`, `--ui-border`
+- Tema de iconos: usa el tema del sistema (`vasakos-icon-theme`) vía `vicon` lookup
+- Radio de bordes: variable CSS `--ui-radius` del esquema activo (por defecto 12px)
+- Fuentes: `--ui-font-family`, `--ui-font-size-base` desde el esquema
 
 ---
 
 ## Desarrollo
 
+### Requisitos
+
+- **Rust:** `rustup` toolchain estable (`rust-toolchain.toml` fija la versión)
+- **Node / bun:** `bun` ≥ 1.1 (nunca npm/yarn/pnpm para apps Tauri)
+- **Sistema:** `pkg-config`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libssl-dev`
+- *`libgtk-layer-shell-dev`, `wayland-protocols`, `wayfire-dev` para Wayland*
+
+### Dependencias de desarrollo
+
+#### Sistema (paquetes Arch / Debian / Fedora)
+
+`base-devel`, `pkgconf`, `libssl-dev`, `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `gstreamer1.0-plugins-base`, `gstreamer1.0-plugins-good`, `libpipewire-0.3-dev`, `libwireplumber-0.5-dev`, `libdbus-1-dev`, `libudev-dev`, `libxkbcommon-dev`, `libwayland-dev`, `meson`, `ninja`, `clang`, `lld`
+
+#### Rust
+
+`rustup` → `stable` + `rustfmt` + `clippy`
+
+#### Node
+
+**Solo `bun`** (nunca npm/yarn/pnpm para apps Tauri). `bun --version` ≥ 1.1
+
+#### Herramientas CLI
+
+`just` (command runner), `cargo-binstall` (opcional), `cargo-llvm-cov` (para cobertura)
+
+### Correr la app en desarrollo
+
 ```bash
-bun install
+# Frontend (Vite dev server + Tauri dev)
 bun run tauri dev
+
+# Solo frontend (Vite)
+bun run dev
+
+# Solo backend (cargo watch)
+cargo watch -x "run --bin vasak-text"
 ```
 
-Antes de cada commit, las tres cosas:
+### Compilar / Build de release
 
 ```bash
-bun run lint && bun run vue-tsc --noEmit && bun test && (cd src-tauri && cargo clippy --all-targets -- -D warnings && cargo test)
+# Build completo (frontend + backend + bundle)
+bun run tauri build
+
+# Solo frontend (para testear bundle después)
+bun run build
+
+# Solo backend Rust (binario optimizado)
+cargo build --release --locked
+
+# Paquetes nativos
+# Arch: makepkg -sf en PKGBUILDS/vasak-text/
+# Debian: cargo deb --no-build --target-dir src-tauri/target/release/debian
 ```
 
-Los tests cubren lo que se rompe callado: la ida y vuelta de los finales de
-línea, el guardado que conserva permisos, el archivo que cambió en disco, cuál
-pestaña queda activa al cerrar, y el mapeo de lenguajes.
-
-Para probar la ventana hay que compilar con el protocolo propio, o el WebView
-queda vacío:
+### Targets principales
 
 ```bash
-cd src-tauri && cargo build --features custom-protocol
+# Desarrollo (Tauri dev server + hot reload)
+bun run dev
+
+# Build producción
+bun run build
+
+# Solo frontend
+bun run build:frontend
+
+# Solo backend Rust
+cargo build --release --locked
+
+# Lint + tipos (pre-commit / CI)
+bunx --bun biome check .
+bunx vue-tsc --noEmit
+cargo fmt --check
 ```
+
+### Pruebas
+
+```bash
+# Suite completa JS (Vitest via bun:test)
+bun test
+
+# Suite completa Rust (crates en pruebas_rust del CI)
+cargo test -p vasak-text-core -p vasak-text-ui --locked
+
+# Integración (requiere Wayfire corriendo)
+cargo test -p vasak-text-integration --locked -- --ignored
+```
+
+### Convención de commits
+
+[Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/):
+
+```
+<tipo>(<ámbito>): <descripción corta>
+
+[cuerpo opcional]
+
+[pie opcional: Closes #N]
+```
+
+Tipos habituales: `feat`, `fix`, `bugfix`, `docs`, `ci`, `chore`, `security`, `refactor`, `perf`, `test`.
+
+### Cómo abrir PR
+
+1. Rama desde `origin/main`:
+   ```bash
+   git worktree add -b feat/tema ~/wt/vasak-text-tema origin/main
+   ```
+2. Prefijos de rama: `fix/`, `feat/`, `bugfix/`, `docs/`, `ci/`, `chore/`, `security/`
+3. Escribe el fix → **`qa` escribe las pruebas** (fallan sin el fix) → suite verde → abre PR
+4. Al abrir PR, **cuatro cosas obligatorias**:
+   - Asignado a `JoaquinDecima`
+   - Etiqueta `enhancement` o `bug` (+ `ci` / `dependencies` si aplica)
+   - Añadido al proyecto «VasakOS Roadmap»
+   - Status **In Progress**
+
+---
+
+## Arquitectura (texto)
+
+### Crates / módulos principales
+
+| `vasak-text-core` | Lógica compartida: estado, D-Bus, IPC |
+| `vasak-text-ui` | Frontend Vue 3 + componentes vue-libvasak |
+| `vasak-text-tauri` | Puente Tauri: commands, eventos, WebView |
+
+### Interfaces D-Bus / zbus expuestas
+
+| `org.vasak.Vasak-text` | `GetState()`, `StateChanged(dict)`, `SetConfig(dict)` | Estado y control principal |
+| `org.vasak.Vasak-text.Panel` | `SetPosition(string)`, `SetAutohide(bool)`, `Height(u32)` | Configuración panel en runtime |
+
+### Puntos de extensión
+
+- **Plugins:** Sistema de plugins modular
+- **Hooks:** Hooks de ciclo de vida
+- **API pública Rust:** API pública del crate principal
+
+### Features / Cargo features
+
+| Feature | Descripción | Default |
+|---------|-------------|---------|
+| `system-tray` | Bandeja del sistema + menú contextual | ✓ |
+| `notifications` | Integración libnotify / freedesktop | ✓ |
+| `updater` | Auto-actualización (tauri-plugin-updater) | |
+| `devtools` | DevTools en release (solo debug) | |
+| `experimental-wayland` | Protocolo Wayland inestable | |
+
+Y para apps Tauri+Vue: features del `tauri.conf.json` → `bundle` / `plugins` / `allowlist` (capabilities).
+
+---
+
+## Pruebas y calidad
+
+- **Cobertura objetivo:** ≥ 80 % del código nuevo (SonarCloud Quality Gate)
+- **Informes:** GitHub Actions → pestaña *SonarCloud Code Analysis* → enlace a SonarCloud
+- **Añadir pruebas:** ver `AGENTS.md` sección 9 (mapa de repos y comandos de prueba)
+- **Regla:** toda corrección lleva prueba escrita por `qa` que falla sin el fix
+
+---
+
+## Contribuir
+
+- **Guía:** [.github/CONTRIBUTING.md](https://github.com/Vasak-OS/.github/blob/main/CONTRIBUTING.md)
+- **Plantillas de issue:** [.github/ISSUE_TEMPLATE/](https://github.com/Vasak-OS/.github/tree/main/ISSUE_TEMPLATE)
+- **Código de conducta:** [CODE_OF_CONDUCT.md](https://github.com/Vasak-OS/.github/blob/main/CODE_OF_CONDUCT.md)
+
+---
+
+## Donadores / Sponsors
+
+[![Sponsors](https://img.shields.io/github/sponsors/Vasak-OS?style=flat&label=Sponsors)](https://github.com/sponsors/Vasak-OS)
+
+> **Backers:** *Actualizado automáticamente en CI desde GitHub Sponsors / OpenCollective / Polar.*
+
+[💖 Donar al proyecto](https://github.com/sponsors/Vasak-OS)
+
+---
 
 ## Licencia
 
-GPLv3.
+`GPL-3.0` — Copyright © 2026 **Vasak-OS Contributors**
+
+[Ver licencia completa](LICENSE)
