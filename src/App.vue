@@ -9,6 +9,7 @@
  * caminos que hay que mantener iguales.
  */
 
+import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useConfigStore } from '@vasakgroup/plugin-config-manager';
@@ -255,6 +256,10 @@ async function abrirVarias(rutas: string[]) {
 }
 
 onMounted(async () => {
+	// Afina el WebKit de esta ventana en cuanto existe para bajar su consumo
+	// (caché de visor, sin extras de desarrollo). Sin bloquear el arranque.
+	invoke('tune_webview').catch(() => {});
+
 	try {
 		const configStore = useConfigStore();
 		await configStore.loadConfig();

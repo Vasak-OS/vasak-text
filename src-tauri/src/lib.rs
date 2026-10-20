@@ -4,6 +4,7 @@
 //! aplicaciones reales del escritorio se rompió al menos una vez.
 
 mod comandos;
+mod commands;
 mod documento;
 mod locales;
 
@@ -129,6 +130,7 @@ pub fn run() {
             comandos::guardar_documento,
             comandos::existe,
             comandos::rutas_de_apertura,
+            commands::webkit::tune_webview,
         ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar la aplicación");
