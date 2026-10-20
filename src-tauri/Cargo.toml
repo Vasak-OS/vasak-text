@@ -1,6 +1,6 @@
 [package]
 name = "vasak-text"
-version = "0.7.1"
+version = "0.7.2"
 description = "El editor de texto de VasakOS"
 authors = ["Vasak Group", "Joaquin (Pato) Decima"]
 edition = "2021"
@@ -30,18 +30,15 @@ tauri-plugin-i18n-vsk = "2.3.0"
 tauri-plugin-vsk-contextual-menu = "2"
 tauri-plugin-shell = "2"
 
-# `gtk` no está a propósito, aunque la plantilla lo traiga.
-#
-# La barra de título propia no lo necesita: mover y maximizar salen de
-# `data-tauri-drag-region` y de la API de ventana de Tauri, y este código nunca
-# lo importó.
-#
-# Ojo con lo que esto **no** arregla: `gtk` 0.18 y `glib` 0.18 siguen en el
-# Cargo.lock porque los trae Tauri por su cuenta, vía `tao`. El aviso de
-# dependabot sobre `glib::VariantStrIter` sigue en pie y no se cierra desde acá;
-# sale cuando Tauri actualice. Quitar esta línea es sacar una dependencia que no
-# se usa, nada más. Antes de volver a agregarla, comprobar que haga falta.
 tauri-plugin-vsk-journal = "2"
+
+# Para afinar el WebKit de la ventana y bajar su consumo (ver
+# `commands/webkit.rs`): hay que bajar por el árbol de GTK hasta el
+# `WebKitWebView`, que es lo único que expone sus `settings`. `gtk` sigue en 0.18
+# porque es la que trae Tauri vía `tao`: subirla sola deja dos generaciones de
+# gtk-rs en el árbol. Sube cuando suba Tauri.
+gtk = "0.18"
+webkit2gtk = "2.0"
 
 # El selector de archivos. **No** es `tauri-plugin-fs`: el diálogo devuelve la
 # ruta que la persona eligió y nada más, mientras que `fs` con un `scope` amplio
