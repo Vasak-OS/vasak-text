@@ -25,7 +25,7 @@ import WindowAppLayout from '@/layouts/WindowAppLayout.vue';
 import { useEditorStore } from '@/stores/editor';
 import { rutasDeApertura } from '@/tools/documento';
 import { DEFAULT_SAVE_OPTIONS, prepareForSave, type SaveOptions } from '@/tools/save-options';
-import { guardarTema } from '@/tools/tema-cache';
+import { saveTheme } from '@/tools/theme-cache';
 
 /** El evento con el que una segunda invocación le pasa sus archivos a ésta. */
 const EVENTO_ABRIR = 'abrir-rutas';
@@ -267,11 +267,11 @@ onMounted(async () => {
 		// Guarda el esquema ya aplicado para que el próximo arranque pinte con él
 		// desde el frame 0 (el script pre-boot de index.html lo lee), en vez de
 		// virar del esquema por defecto al del usuario con el fade de 300 ms.
-		guardarTema();
+		saveTheme();
 
 		dejarDeEscucharConfig = await listen('config-changed', async () => {
 			document.startViewTransition(() => {
-				configStore.loadConfig().then(() => guardarTema());
+				configStore.loadConfig().then(() => saveTheme());
 			});
 		});
 	} catch (error) {
